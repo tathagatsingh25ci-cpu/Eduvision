@@ -10,6 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 
+if os.environ.get("VERCEL"):
+    os.makedirs("/tmp/matplotlib", exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -69,9 +73,15 @@ STREAMS = ["Science", "Commerce", "Arts"]
 ROLE_CHOICES = {"admin", "teacher", "student"}
 
 
-app = Flask(__name__)
+def default_database_uri():
+    if os.environ.get("VERCEL"):
+        return "sqlite:////tmp/eduvision.db"
+    return "sqlite:///eduvision.db"
+
+
+app = Flask(__name__, static_folder="public/static", static_url_path="/static")
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "eduvision-secret-key-2026")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///eduvision.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_database_uri())
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.permanent_session_lifetime = timedelta(days=30)
 CORS(app)
@@ -238,6 +248,19 @@ def get_text(data, key, default=""):
     except ValueError:
         return default
     return str(value).strip()
+
+
+def request_payload():
+    data = request.get_json(silent=True)
+    if isinstance(data, dict):
+        return data
+    if request.form:
+        return request.form.to_dict(flat=True)
+    return {}
+
+
+def checkbox_enabled(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def numeric_subjects(student):
@@ -940,7 +963,7 @@ def index():
 
 @app.route("/api/contact", methods=["POST"])
 def contact_request():
-    data = request.get_json(silent=True) or {}
+    data = request_payload()
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip()
     if not name or not email:
@@ -951,11 +974,11 @@ def contact_request():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        data = request.get_json(silent=True) or {}
+        data = request_payload()
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         selected_role = (data.get("role") or "").strip().lower()
-        remember = bool(data.get("remember"))
+        remember = checkbox_enabled(data.get("remember"))
         if not username or not password:
             return jsonify({"success": False, "message": "Username and password are required"}), 400
 
@@ -973,7 +996,7 @@ def login():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        data = request.get_json(silent=True) or {}
+        data = request_payload()
         role = (data.get("role") or "student").strip().lower()
         username = (data.get("username") or data.get("roll_number") or "").strip()
         password = data.get("password") or ""

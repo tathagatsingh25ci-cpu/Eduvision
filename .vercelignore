@@ -1,0 +1,12 @@
+.venv/
+venv/
+eduvision-ai/venv/
+__pycache__/
+*.py[cod]
+*.log
+.env
+.flaskenv
+instance/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

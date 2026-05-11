@@ -5,6 +5,7 @@
     const ctx = canvas.getContext("2d");
     const particles = [];
     const density = 72;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -67,6 +68,31 @@
         setTimeout(() => toast.remove(), 3400);
     };
 
+    function createPopBurst(event) {
+        if (prefersReducedMotion || !event.clientX || !event.clientY) return;
+        const labels = ["AI", "%", "ML", "+", "OK"];
+        const count = 3;
+        for (let index = 0; index < count; index += 1) {
+            const pop = document.createElement("span");
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 34 + Math.random() * 28;
+            pop.className = "pop-icon";
+            pop.textContent = labels[Math.floor(Math.random() * labels.length)];
+            pop.style.left = `${event.clientX}px`;
+            pop.style.top = `${event.clientY}px`;
+            pop.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+            pop.style.setProperty("--dy", `${Math.sin(angle) * distance - 14}px`);
+            document.body.appendChild(pop);
+            setTimeout(() => pop.remove(), 820);
+        }
+    }
+
+    document.addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".btn, .social-btn, .role-tab, .feature-card, .metric-card, .chart-card, .sidebar-link")) {
+            createPopBurst(event);
+        }
+    });
+
     document.querySelectorAll("[data-contact-form]").forEach((form) => {
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -125,5 +151,5 @@
 
     window.addEventListener("resize", resize);
     resize();
-    animate();
+    if (!prefersReducedMotion) animate();
 })();

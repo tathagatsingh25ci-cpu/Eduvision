@@ -14,6 +14,14 @@
     <canvas id="particleCanvas" aria-hidden="true"></canvas>
     <div class="bg-grid" aria-hidden="true"></div>
     <div class="bg-aurora" aria-hidden="true"></div>
+    <div class="floating-icons" aria-hidden="true">
+        <span style="--x: 8%; --y: 18%; --d: 0s;">AI</span>
+        <span style="--x: 86%; --y: 16%; --d: 1.4s;">%</span>
+        <span style="--x: 76%; --y: 48%; --d: 2.8s;">ML</span>
+        <span style="--x: 12%; --y: 64%; --d: 4.1s;">PDF</span>
+        <span style="--x: 90%; --y: 76%; --d: 5.3s;">TOP</span>
+        <span style="--x: 22%; --y: 86%; --d: 6.2s;">CSV</span>
+    </div>
     {% block body %}{% endblock %}
     <div id="toastStack" class="toast-stack" aria-live="polite"></div>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

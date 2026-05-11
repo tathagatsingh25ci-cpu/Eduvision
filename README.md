@@ -31,7 +31,17 @@ http://127.0.0.1:5000/
 - PDF reports plus Excel and CSV exports
 - Admin user management
 
-Runtime data is stored in `instance/eduvision.db`.
+Runtime data is stored in `instance/eduvision.db` locally. On Vercel, the demo database uses `/tmp/eduvision.db` so the serverless function can write safely during runtime.
+
+## Deploy On Vercel
+
+This project is Vercel-ready as a zero-config Flask backend. Push the repo to GitHub, import it into Vercel, and keep the framework preset as Flask or auto-detected Python.
+
+Recommended environment variable:
+
+- `SECRET_KEY`: set to a secure random value
+
+For long-lived production data, set `DATABASE_URL` to a managed database. The default Vercel SQLite path is only for demos because serverless storage is temporary.
 
 ## Deploy On Render
 

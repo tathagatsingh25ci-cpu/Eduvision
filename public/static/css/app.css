@@ -75,7 +75,8 @@ img {
 
 #particleCanvas,
 .bg-grid,
-.bg-aurora {
+.bg-aurora,
+.floating-icons {
     position: fixed;
     inset: 0;
     pointer-events: none;
@@ -101,6 +102,38 @@ img {
         linear-gradient(60deg, transparent 12%, rgba(244, 114, 182, 0.08) 48%, transparent 72%),
         repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 18px);
     filter: blur(6px);
+}
+
+.floating-icons {
+    z-index: 0;
+    overflow: hidden;
+}
+
+.floating-icons span {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    display: grid;
+    place-items: center;
+    min-width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border: 1px solid rgba(129, 230, 217, 0.22);
+    border-radius: var(--radius);
+    background: rgba(8, 19, 38, 0.56);
+    box-shadow: 0 12px 38px rgba(34, 211, 238, 0.13);
+    color: rgba(238, 251, 255, 0.72);
+    font-size: 0.76rem;
+    font-weight: 900;
+    backdrop-filter: blur(12px);
+    animation: floatBadge 9s ease-in-out infinite;
+    animation-delay: var(--d);
+}
+
+main,
+.dashboard-shell {
+    position: relative;
+    z-index: 1;
 }
 
 .container {
@@ -187,6 +220,12 @@ button.btn {
 .btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 0 28px rgba(34, 211, 238, 0.28);
+}
+
+.btn:active,
+.social-btn:active,
+.role-tab:active {
+    transform: translateY(0) scale(0.98);
 }
 
 .btn.secondary {
@@ -520,6 +559,14 @@ h3 {
     background: rgba(34, 211, 238, 0.12);
     color: var(--lime);
     font-weight: 900;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover .feature-icon,
+.sidebar-link:hover .sidebar-icon,
+.sidebar-link.active .sidebar-icon {
+    transform: rotate(-3deg) scale(1.08);
+    box-shadow: 0 0 22px rgba(34, 211, 238, 0.18);
 }
 
 .dashboard-preview {
@@ -1189,6 +1236,25 @@ tbody tr:hover {
     color: var(--text);
 }
 
+.pop-icon {
+    position: fixed;
+    z-index: 260;
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid rgba(129, 230, 217, 0.28);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.92);
+    color: var(--lime);
+    font-size: 0.68rem;
+    font-weight: 900;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: popIcon 760ms ease-out forwards;
+}
+
 .loading {
     position: fixed;
     inset: 0;
@@ -1224,6 +1290,32 @@ tbody tr:hover {
     }
     to {
         transform: scale(1.08) translate3d(-1.5%, 0.6%, 0);
+    }
+}
+
+@keyframes floatBadge {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+        opacity: 0.5;
+    }
+    50% {
+        transform: translate3d(10px, -18px, 0) rotate(4deg);
+        opacity: 0.92;
+    }
+}
+
+@keyframes popIcon {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.52);
+    }
+    28% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.12);
     }
 }
 
@@ -1389,5 +1481,21 @@ tbody tr:hover {
     .nav-actions {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .floating-icons span {
+        opacity: 0.28;
+        transform: scale(0.86);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}EduVision AI - Smart Examination Analytics{% endblock %}
+{% block body_class %}landing-page{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <nav class="container nav">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">EV</span>
+            <span>EduVision AI</span>
+        </a>
+        <div class="nav-links">
+            <a href="#analytics">AI Analytics</a>
+            <a href="#prediction">Prediction</a>
+            <a href="#tracking">Tracking</a>
+            <a href="#features">Features</a>
+            <a href="#contact">Contact</a>
+        </div>
+        <div class="nav-actions">
+            <a class="btn secondary" href="{{ url_for('login') }}">Login</a>
+            <a class="btn" href="{{ url_for('signup') }}">Launch Platform</a>
+        </div>
+    </nav>
+</header>
+
+<main>
+    <section class="container hero">
+        <div class="hero-media-bg" aria-hidden="true">
+            <img src="{{ url_for('static', filename='images/hero-analytics.png') }}" alt="">
+        </div>
+        <div class="hero-copy">
+            <p class="eyebrow">AI powered result intelligence</p>
+            <h1>EduVision AI</h1>
+            <p class="lead">
+                EduVision AI turns marks, attendance, predictions, and reports into a real-time academic command center for schools, teachers, and students.
+            </p>
+            <div class="actions">
+                <a class="btn" href="{{ url_for('login') }}">Open Dashboard</a>
+                <a class="btn secondary" href="{{ url_for('signup') }}">Create Account</a>
+            </div>
+            <div class="chip-row" style="margin-top: 24px;">
+                <span class="chip">ML Predictions</span>
+                <span class="chip">Live Analytics</span>
+                <span class="chip">PDF Reports</span>
+            </div>
+        </div>
+        <div class="hero-stat-strip" aria-label="Platform highlights">
+            <div><span class="metric-label">Prediction Accuracy</span><strong data-counter="96.5">0</strong><small>%</small></div>
+            <div><span class="metric-label">AI Models</span><strong data-counter="3">0</strong><small>live</small></div>
+            <div><span class="metric-label">Report Formats</span><strong data-counter="3">0</strong><small>PDF XLS CSV</small></div>
+        </div>
+    </section>
+
+    <section class="section-tight">
+        <div class="container preview-band">
+            <div>
+                <p class="eyebrow">Live product preview</p>
+                <h2>Premium dashboards for serious academic decisions</h2>
+            </div>
+            <img src="{{ url_for('static', filename='images/ai-dashboard-preview.svg') }}" alt="EduVision AI analytics dashboard preview">
+        </div>
+    </section>
+
+    <section id="analytics" class="section">
+        <div class="container">
+            <p class="eyebrow">Analytics engine</p>
+            <h2>AI Analytics</h2>
+            <div class="feature-grid">
+                <article class="feature-card">
+                    <span class="feature-icon">A1</span>
+                    <h3>School Intelligence</h3>
+                    <p class="lead">Monitor average score, pass rate, attendance, risk count, and toppers from live database records.</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">A2</span>
+                    <h3>Subject Diagnostics</h3>
+                    <p class="lead">Compare subject averages, class trends, and stream performance with animated Chart.js visuals.</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">A3</span>
+                    <h3>Insight Cards</h3>
+                    <p class="lead">Generate recommendations from marks, attendance patterns, strengths, weaknesses, and topper movement.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="prediction" class="section">
+        <div class="container dashboard-preview">
+            <div>
+                <p class="eyebrow">Prediction studio</p>
+                <h2>Smart Prediction</h2>
+                <p class="lead">
+                    The platform combines Linear Regression, Decision Tree, and Random Forest models to estimate final results, pass/fail status, risk level, and student-specific recommendations.
+                </p>
+                <div class="chip-row">
+                    <span class="chip">Outstanding</span>
+                    <span class="chip">Excellent</span>
+                    <span class="chip">Good</span>
+                    <span class="chip">Average</span>
+                </div>
+            </div>
+            <div class="panel">
+                <h3>AI Recommendation Flow</h3>
+                <div class="details-list">
+                    <div><span>Attendance Signal</span><strong>High impact</strong></div>
+                    <div><span>Weak Subject Detection</span><strong>Automatic</strong></div>
+                    <div><span>Expected Final Result</span><strong>Live</strong></div>
+                    <div><span>Confidence Meter</span><strong>Model based</strong></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tracking" class="section">
+        <div class="container">
+            <p class="eyebrow">Student tracking</p>
+            <h2>Every learner has a profile</h2>
+            <div class="feature-grid">
+                <article class="feature-card">
+                    <span class="feature-icon">S1</span>
+                    <h3>Full Profile</h3>
+                    <p class="lead">Roll number, class, section, stream, attendance, marks, ranking, and predictions stay connected.</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">S2</span>
+                    <h3>Global Search</h3>
+                    <p class="lead">Find students by name, roll number, class, or stream and open a complete performance view.</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">S3</span>
+                    <h3>Student Portal</h3>
+                    <p class="lead">Students can log in to see their marks, AI risk level, strengths, weaknesses, and report download.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="preview" class="section">
+        <div class="container dashboard-preview">
+            <div class="glass hero-card">
+                <img src="{{ url_for('static', filename='images/ai-dashboard-preview.svg') }}" alt="Analytics dashboard preview">
+            </div>
+            <div>
+                <p class="eyebrow">Dashboard preview</p>
+                <h2>Built for demos, viva, and daily review</h2>
+                <p class="lead">Sidebar navigation, animated counters, charts, leaderboard, CSV/Excel import, report export, and recent activity work from the same Flask backend.</p>
+                <a class="btn" href="{{ url_for('login') }}">Enter Dashboard</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="section">
+        <div class="container">
+            <p class="eyebrow">Platform features</p>
+            <h2>Complete analytics workspace</h2>
+            <div class="feature-grid">
+                <article class="feature-card"><span class="feature-icon">F1</span><h3>Role Login</h3><p class="lead">Admin, teacher, and student sessions with separate dashboard routes.</p></article>
+                <article class="feature-card"><span class="feature-icon">F2</span><h3>Data Entry</h3><p class="lead">Add, edit, delete, search, import, and export student records.</p></article>
+                <article class="feature-card"><span class="feature-icon">F3</span><h3>Report System</h3><p class="lead">Download PDF reports with marks, predictions, graphs, and recommendations.</p></article>
+                <article class="feature-card"><span class="feature-icon">F4</span><h3>Topper Analytics</h3><p class="lead">Overall topper, stream toppers, subject toppers, and top 10 leaderboard.</p></article>
+                <article class="feature-card"><span class="feature-icon">F5</span><h3>Advanced Charts</h3><p class="lead">Bar, line, doughnut, radar, scatter, heatmap-style cards, and stream graphs.</p></article>
+                <article class="feature-card"><span class="feature-icon">F6</span><h3>AI Insights</h3><p class="lead">Automatic academic signals and recommendation cards for intervention planning.</p></article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <p class="eyebrow">Testimonials</p>
+            <h2>Presentation-ready feedback</h2>
+            <div class="testimonial-grid">
+                <article class="testimonial">
+                    <p class="lead">"The dashboard makes result analysis feel instant and professional."</p>
+                    <strong>Academic Coordinator</strong>
+                </article>
+                <article class="testimonial">
+                    <p class="lead">"Risk prediction and subject insights are exactly what teachers need before exams."</p>
+                    <strong>Senior Teacher</strong>
+                </article>
+                <article class="testimonial">
+                    <p class="lead">"The student portal gives learners a clear view of what to improve next."</p>
+                    <strong>Class Mentor</strong>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="section">
+        <div class="container contact-grid">
+            <div>
+                <p class="eyebrow">Contact</p>
+                <h2>Bring AI analytics to your school</h2>
+                <p class="lead">Send a request and the platform records it instantly through Flask.</p>
+            </div>
+            <form class="panel" data-contact-form>
+                <div class="form-grid two">
+                    <label>Name <input name="name" required></label>
+                    <label>Email <input name="email" type="email" required></label>
+                </div>
+                <label style="margin-top: 12px;">Message <textarea name="message" required></textarea></label>
+                <div class="actions" style="margin-top: 14px;">
+                    <button class="btn" type="submit">Send Request</button>
+                </div>
+                <p class="message"></p>
+            </form>
+        </div>
+    </section>
+</main>
+{% endblock %}

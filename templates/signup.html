@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - EduVision AI{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <nav class="container nav">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">EV</span>
+            <span>EduVision AI</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn secondary" href="{{ url_for('index') }}">Home</a>
+            <a class="btn" href="{{ url_for('login') }}">Sign In</a>
+        </div>
+    </nav>
+</header>
+
+<main class="container login-wrap">
+    <section>
+        <p class="eyebrow">Start intelligent result analytics</p>
+        <h1>Create your <span class="gradient-text">EduVision</span> workspace</h1>
+        <p class="lead">
+            Register as an admin, teacher, or student and land directly in a role-aware analytics dashboard with predictions, reports, and student intelligence.
+        </p>
+        <div class="auth-visual">
+            <img src="{{ url_for('static', filename='images/hero-analytics.png') }}" alt="Premium AI analytics command center">
+            <div class="mini-stat-grid">
+                <div><span>Prediction</span><strong>Real time</strong></div>
+                <div><span>Reports</span><strong>Downloadable</strong></div>
+                <div><span>Database</span><strong>SQLite ready</strong></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <p class="eyebrow">New account</p>
+        <h2>Sign Up</h2>
+        <div class="role-tabs" aria-label="Role selector">
+            <button class="role-tab active" type="button" data-role="student">Student</button>
+            <button class="role-tab" type="button" data-role="teacher">Teacher</button>
+            <button class="role-tab" type="button" data-role="admin">Admin</button>
+        </div>
+        <form id="signupForm">
+            <input type="hidden" name="role" id="signupRoleInput" value="student">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>Full Name <input name="full_name" autocomplete="name" required></label>
+                <label><span id="usernameLabel">Roll Number</span> <input name="username" autocomplete="username" placeholder="STU013" required></label>
+                <label>Email <input name="email" type="email" autocomplete="email" placeholder="you@school.edu"></label>
+                <label class="teacher-field hidden">Employee ID <input name="employee_id" placeholder="TCH013"></label>
+                <label class="teacher-field hidden">Subject <input name="subject" placeholder="Mathematics"></label>
+                <div class="student-fields">
+                    <div class="form-grid two">
+                        <label>Class <input name="class_name" value="10"></label>
+                        <label>Section <input name="section" value="A"></label>
+                    </div>
+                    <label style="margin-top: 12px;">Stream
+                        <select name="stream">
+                            <option>Science</option>
+                            <option>Commerce</option>
+                            <option>Arts</option>
+                        </select>
+                    </label>
+                </div>
+                <label>Password
+                    <span class="password-field">
+                        <input name="password" type="password" autocomplete="new-password" required minlength="6">
+                        <button type="button" class="icon-btn" data-toggle-password aria-label="Show password">Show</button>
+                    </span>
+                </label>
+            </div>
+            <div class="form-row">
+                <label class="check-row"><input name="terms" type="checkbox" required> I agree to secure academic data use</label>
+                <a class="subtle-link" href="{{ url_for('login') }}">Already registered?</a>
+            </div>
+            <div class="actions" style="margin-top: 16px;">
+                <button class="btn" type="submit">Create Account</button>
+            </div>
+            <p id="signupMessage" class="message" role="status"></p>
+        </form>
+        <div class="social-grid" aria-label="Social login placeholders">
+            <button type="button" class="social-btn">Google</button>
+            <button type="button" class="social-btn">Microsoft</button>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const signupForm = document.getElementById("signupForm");
+const roleInput = document.getElementById("signupRoleInput");
+const message = document.getElementById("signupMessage");
+const usernameLabel = document.getElementById("usernameLabel");
+
+function updateRole(role) {
+    roleInput.value = role;
+    usernameLabel.textContent = role === "student" ? "Roll Number" : "Username";
+    document.querySelectorAll(".teacher-field").forEach((node) => node.classList.toggle("hidden", role !== "teacher"));
+    document.querySelectorAll(".student-fields").forEach((node) => node.classList.toggle("hidden", role !== "student"));
+    signupForm.elements.username.placeholder = role === "student" ? "STU013" : role === "teacher" ? "teacher13" : "admin13";
+}
+
+document.querySelectorAll(".role-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+        document.querySelectorAll(".role-tab").forEach((tab) => tab.classList.remove("active"));
+        button.classList.add("active");
+        updateRole(button.dataset.role);
+        message.textContent = "";
+        message.className = "message";
+    });
+});
+
+document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = button.closest(".password-field").querySelector("input");
+        const visible = input.type === "text";
+        input.type = visible ? "password" : "text";
+        button.textContent = visible ? "Show" : "Hide";
+    });
+});
+
+signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    message.textContent = "";
+    message.className = "message";
+
+    const payload = Object.fromEntries(new FormData(signupForm).entries());
+    try {
+        const response = await fetch("{{ url_for('signup') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Sign up failed");
+        }
+        window.location.href = data.redirect || "{{ url_for('dashboard') }}";
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "message error";
+    }
+});
+</script>
+{% endblock %}

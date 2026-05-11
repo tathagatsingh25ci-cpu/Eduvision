@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Login - EduVision AI{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <nav class="container nav">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">EV</span>
+            <span>EduVision AI</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn secondary" href="{{ url_for('index') }}">Home</a>
+            <a class="btn" href="{{ url_for('signup') }}">Sign Up</a>
+        </div>
+    </nav>
+</header>
+
+<main class="container login-wrap">
+    <section>
+        <p class="eyebrow">Secure role access</p>
+        <h1>Enter the <span class="gradient-text">AI Command Center</span></h1>
+        <p class="lead">
+            Admins manage the full platform, teachers update academic records, and students access their own performance portal.
+        </p>
+        <div class="auth-visual">
+            <img src="{{ url_for('static', filename='images/hero-analytics.png') }}" alt="AI education analytics workspace">
+            <div class="mini-stat-grid">
+                <div><span>ML Stack</span><strong>LR + DT + RF</strong></div>
+                <div><span>Reports</span><strong>PDF + Excel</strong></div>
+                <div><span>Roles</span><strong>Admin Teacher Student</strong></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <p class="eyebrow">Authentication</p>
+        <h2>Sign In</h2>
+        <div class="role-tabs" aria-label="Role selector">
+            <button class="role-tab active" type="button" data-role="admin">Admin</button>
+            <button class="role-tab" type="button" data-role="teacher">Teacher</button>
+            <button class="role-tab" type="button" data-role="student">Student</button>
+        </div>
+        <form id="loginForm">
+            <input type="hidden" name="role" id="roleInput" value="admin">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>Username <input name="username" autocomplete="username" value="admin" required></label>
+                <label>Password
+                    <span class="password-field">
+                        <input name="password" type="password" autocomplete="current-password" value="admin123" required>
+                        <button type="button" class="icon-btn" data-toggle-password aria-label="Show password">Show</button>
+                    </span>
+                </label>
+            </div>
+            <div class="form-row">
+                <label class="check-row"><input name="remember" type="checkbox" value="1"> Remember me</label>
+                <a class="subtle-link" href="{{ url_for('signup') }}">Create account</a>
+            </div>
+            <div class="actions" style="margin-top: 16px;">
+                <button class="btn" type="submit">Sign In</button>
+            </div>
+            <p id="loginMessage" class="message" role="status"></p>
+        </form>
+        <div class="social-grid" aria-label="Social login placeholders">
+            <button type="button" class="social-btn">Google</button>
+            <button type="button" class="social-btn">Microsoft</button>
+        </div>
+        <div class="credentials">
+            <div><strong>Admin:</strong> admin / admin123</div>
+            <div><strong>Teacher:</strong> teacher / teacher123</div>
+            <div><strong>Student:</strong> STU001 / student123</div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const roleDefaults = {
+    admin: ["admin", "admin123"],
+    teacher: ["teacher", "teacher123"],
+    student: ["STU001", "student123"]
+};
+
+const form = document.getElementById("loginForm");
+const roleInput = document.getElementById("roleInput");
+const message = document.getElementById("loginMessage");
+const username = form.querySelector("[name='username']");
+const password = form.querySelector("[name='password']");
+
+document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = button.closest(".password-field").querySelector("input");
+        const visible = input.type === "text";
+        input.type = visible ? "password" : "text";
+        button.textContent = visible ? "Show" : "Hide";
+    });
+});
+
+document.querySelectorAll(".role-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+        document.querySelectorAll(".role-tab").forEach((tab) => tab.classList.remove("active"));
+        button.classList.add("active");
+        roleInput.value = button.dataset.role;
+        [username.value, password.value] = roleDefaults[button.dataset.role];
+        message.textContent = "";
+        message.className = "message";
+    });
+});
+
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    message.textContent = "";
+    message.className = "message";
+
+    try {
+        const response = await fetch("{{ url_for('login') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Login failed");
+        }
+        window.location.href = data.redirect || "{{ url_for('dashboard') }}";
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "message error";
+    }
+});
+</script>
+{% endblock %}

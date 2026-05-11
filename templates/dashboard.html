@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - EduVision AI{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block body %}
+<div class="loading" id="loadingOverlay"><div class="loader"></div></div>
+
+<div class="dashboard-shell" data-role="{{ role }}" data-username="{{ user.username }}">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head">
+            <a href="{{ url_for('index') }}" class="brand">
+                <span class="brand-mark">EV</span>
+                <span>EduVision AI</span>
+            </a>
+            <button class="btn ghost" id="closeSidebar" type="button">X</button>
+        </div>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link active" href="#overview" data-view="overview"><span class="sidebar-icon">OV</span>Overview</a>
+            <a class="sidebar-link" href="#analytics" data-view="analytics"><span class="sidebar-icon">AN</span>Analytics</a>
+            <a class="sidebar-link" href="#students" data-view="students"><span class="sidebar-icon">ST</span>Students</a>
+            <a class="sidebar-link" href="#prediction" data-view="prediction"><span class="sidebar-icon">AI</span>Prediction</a>
+            <a class="sidebar-link" href="#toppers" data-view="toppers"><span class="sidebar-icon">TP</span>Toppers</a>
+            <a class="sidebar-link" href="#reports" data-view="reports"><span class="sidebar-icon">RP</span>Reports</a>
+            <a class="sidebar-link admin-only teacher-only" href="#upload" data-view="upload"><span class="sidebar-icon">UP</span>Upload</a>
+            <a class="sidebar-link admin-only" href="#users" data-view="users"><span class="sidebar-icon">US</span>Users</a>
+            <a class="sidebar-link" href="#insights" data-view="insights"><span class="sidebar-icon">IN</span>Insights</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span class="pill">{{ role|title }} Session</span>
+            <a class="btn secondary" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="btn secondary" id="openSidebar" type="button">Menu</button>
+                <div class="search-box">
+                    <input id="globalSearch" type="search" placeholder="Search name, roll number, class, stream">
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <span class="pill" id="liveClock">--:--</span>
+                <button class="btn secondary admin-only teacher-only" id="trainModelBtn" type="button">Train ML</button>
+                <a class="btn secondary admin-only teacher-only" href="{{ url_for('export_excel') }}">Export Excel</a>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="view-section active" id="view-overview">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Academic command center</p>
+                        <h1>Smart Analytics Dashboard</h1>
+                    </div>
+                    <div class="chip-row">
+                        <span class="chip">Live Database</span>
+                        <span class="chip">AI Predictions</span>
+                        <span class="chip">Report Ready</span>
+                    </div>
+                </div>
+                <div class="stats-grid" id="statsGrid"></div>
+                <div class="chart-grid">
+                    <article class="chart-card">
+                        <header><h3>Subject Average</h3><span class="pill">Bar</span></header>
+                        <div class="chart-wrap"><canvas id="subjectChart"></canvas></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Performance Categories</h3><span class="pill">Doughnut</span></header>
+                        <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+                    </article>
+                </div>
+                <div class="chart-grid three">
+                    <article class="chart-card">
+                        <header><h3>Stream Comparison</h3></header>
+                        <div class="chart-wrap sm"><canvas id="streamChart"></canvas></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Class Trend</h3></header>
+                        <div class="chart-wrap sm"><canvas id="trendChart"></canvas></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Recent Activity</h3></header>
+                        <div class="activity-list" id="recentActivity"></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="view-section" id="view-analytics">
+                <div class="section-head">
+                    <div><p class="eyebrow">Advanced charts</p><h1>Analytics Engine</h1></div>
+                </div>
+                <div class="chart-grid">
+                    <article class="chart-card">
+                        <header><h3>Attendance vs Marks</h3><span class="pill">Scatter</span></header>
+                        <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Subject Radar</h3><span class="pill">Radar</span></header>
+                        <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+                    </article>
+                </div>
+                <article class="chart-card">
+                    <header><h3>Class Heatmap</h3><span class="pill">Subject intensity</span></header>
+                    <div class="heatmap-grid" id="heatmapGrid"></div>
+                </article>
+            </section>
+
+            <section class="view-section" id="view-students">
+                <div class="section-head">
+                    <div><p class="eyebrow">Student tracking</p><h1>Student Data System</h1></div>
+                    <div class="actions admin-only teacher-only">
+                        <button class="btn secondary" id="resetStudentForm" type="button">New Record</button>
+                    </div>
+                </div>
+                <form class="filter-panel" id="studentFilters">
+                    <label>Search <input id="studentTableSearch" name="q" type="search" placeholder="Name, roll number, class, stream"></label>
+                    <label>Stream
+                        <select id="streamFilter" name="stream">
+                            <option value="">All streams</option>
+                            <option>Science</option>
+                            <option>Commerce</option>
+                            <option>Arts</option>
+                        </select>
+                    </label>
+                    <label>Class <input id="classFilter" name="class_name" placeholder="10"></label>
+                    <label>Focus
+                        <select id="focusFilter" name="focus">
+                            <option value="">All students</option>
+                            <option value="toppers">Topper students</option>
+                            <option value="weak">Weak students</option>
+                        </select>
+                    </label>
+                    <label>Attendance
+                        <select id="attendanceFilter" name="attendance">
+                            <option value="">Any attendance</option>
+                            <option value="low">Below 75%</option>
+                            <option value="excellent">90% and above</option>
+                        </select>
+                    </label>
+                    <button class="btn secondary" type="reset">Reset</button>
+                </form>
+                <div class="detail-grid">
+                    <article class="table-card">
+                        <header><h3>Student Records</h3><span class="pill" id="studentCount">0 records</span></header>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Name</th>
+                                        <th>Roll</th>
+                                        <th>Class</th>
+                                        <th>Stream</th>
+                                        <th>Attendance</th>
+                                        <th>Percentage</th>
+                                        <th>Risk</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentsBody"></tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <aside class="panel admin-only teacher-only">
+                        <header><h3 id="studentFormTitle">Add Student</h3></header>
+                        <form id="studentForm">
+                            <input type="hidden" id="studentId" name="id">
+                            <div class="form-grid two">
+                                <label>Name <input name="name" required></label>
+                                <label>Roll Number <input name="roll_number" required></label>
+                                <label>Class <input name="class_name" required></label>
+                                <label>Section <input name="section" value="A"></label>
+                                <label>Stream
+                                    <select name="stream">
+                                        <option>Science</option>
+                                        <option>Commerce</option>
+                                        <option>Arts</option>
+                                    </select>
+                                </label>
+                                <label>Attendance <input name="attendance" type="number" min="0" max="100" step="0.1" value="85"></label>
+                                <label>Internal Marks <input name="internal_marks" type="number" min="0" max="100" step="0.1" value="70"></label>
+                                <label>Semester Marks <input name="semester_marks" type="number" min="0" max="100" step="0.1" value="70"></label>
+                                <label>Mathematics <input name="mathematics" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Physics <input name="physics" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Chemistry <input name="chemistry" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Biology <input name="biology" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Computer Science <input name="computer_science" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>English <input name="english" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Geography <input name="geography" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>History <input name="history" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Economics <input name="economics" type="number" min="0" max="100" step="0.1" value="0"></label>
+                                <label>Physical Education <input name="physical_education" type="number" min="0" max="100" step="0.1" value="0"></label>
+                            </div>
+                            <div class="actions" style="margin-top: 14px;">
+                                <button class="btn" type="submit">Save Student</button>
+                                <button class="btn secondary" type="reset">Clear</button>
+                            </div>
+                            <p class="message" id="studentFormMessage"></p>
+                        </form>
+                    </aside>
+
+                    <aside class="panel student-only">
+                        <header><h3>Enter My Marks</h3><span class="pill">Student Portal</span></header>
+                        <form id="selfMarksForm">
+                            <div class="form-grid two">
+                                <label>Class <input name="class_name"></label>
+                                <label>Section <input name="section"></label>
+                                <label>Stream
+                                    <select name="stream">
+                                        <option>Science</option>
+                                        <option>Commerce</option>
+                                        <option>Arts</option>
+                                    </select>
+                                </label>
+                                <label>Attendance <input name="attendance" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Internal Marks <input name="internal_marks" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Semester Marks <input name="semester_marks" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Mathematics <input name="mathematics" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Physics <input name="physics" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Chemistry <input name="chemistry" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Biology <input name="biology" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Computer Science <input name="computer_science" type="number" min="0" max="100" step="0.1"></label>
+                                <label>English <input name="english" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Geography <input name="geography" type="number" min="0" max="100" step="0.1"></label>
+                                <label>History <input name="history" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Economics <input name="economics" type="number" min="0" max="100" step="0.1"></label>
+                                <label>Physical Education <input name="physical_education" type="number" min="0" max="100" step="0.1"></label>
+                            </div>
+                            <div class="actions" style="margin-top: 14px;">
+                                <button class="btn" type="submit">Update My Analytics</button>
+                            </div>
+                            <p class="message" id="selfMarksMessage"></p>
+                        </form>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="view-section" id="view-prediction">
+                <div class="section-head">
+                    <div><p class="eyebrow">AI student profile</p><h1>Prediction Studio</h1></div>
+                    <div class="actions"><a class="btn secondary" id="selectedPdfLink" href="#" target="_blank">Download PDF</a></div>
+                </div>
+                <div class="detail-grid">
+                    <article class="panel" id="studentProfile">
+                        <header><h3>Selected Profile</h3></header>
+                        <p class="lead">Select a student from the table or search results.</p>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Subject Performance</h3></header>
+                        <div class="chart-wrap"><canvas id="profileChart"></canvas></div>
+                    </article>
+                </div>
+                <div class="model-grid">
+                    <article class="model-card"><span>Linear Regression</span><strong>Percentage Forecast</strong></article>
+                    <article class="model-card"><span>Decision Tree</span><strong>Category Signal</strong></article>
+                    <article class="model-card"><span>Random Forest</span><strong>Risk Stabilization</strong></article>
+                </div>
+            </section>
+
+            <section class="view-section" id="view-toppers">
+                <div class="section-head">
+                    <div><p class="eyebrow">Topper analytics</p><h1>Leaderboard</h1></div>
+                </div>
+                <div class="topper-grid" id="topperCards"></div>
+                <article class="table-card">
+                    <header><h3>Top 10 Students</h3></header>
+                    <div class="leaderboard-list" id="leaderboardList"></div>
+                </article>
+                <article class="table-card">
+                    <header><h3>Subject Toppers</h3></header>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Subject</th><th>Student</th><th>Marks</th></tr></thead>
+                            <tbody id="subjectToppersBody"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <section class="view-section" id="view-reports">
+                <div class="section-head">
+                    <div><p class="eyebrow">Report generation</p><h1>Reports and Exports</h1></div>
+                </div>
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <span class="feature-icon">PDF</span>
+                        <h3>Student PDF Report</h3>
+                        <p class="lead">Select a student and download a complete performance report.</p>
+                        <a class="btn secondary" id="reportPdfLink" href="#" target="_blank">Download Selected PDF</a>
+                    </article>
+                    <article class="feature-card admin-only teacher-only">
+                        <span class="feature-icon">XLS</span>
+                        <h3>Excel Export</h3>
+                        <p class="lead">Export students, AI insights, and leaderboard sheets.</p>
+                        <a class="btn secondary" href="{{ url_for('export_excel') }}">Download Excel</a>
+                    </article>
+                    <article class="feature-card admin-only teacher-only">
+                        <span class="feature-icon">CSV</span>
+                        <h3>CSV Export</h3>
+                        <p class="lead">Export student analytics rows for external review.</p>
+                        <a class="btn secondary" href="{{ url_for('export_csv') }}">Download CSV</a>
+                    </article>
+                </div>
+            </section>
+
+            <section class="view-section admin-only teacher-only" id="view-upload">
+                <div class="section-head">
+                    <div><p class="eyebrow">Dataset upload</p><h1>CSV and Excel Import</h1></div>
+                </div>
+                <form class="panel" id="uploadForm">
+                    <div class="form-grid two">
+                        <label>Dataset File <input name="file" type="file" accept=".csv,.xlsx,.xls" required></label>
+                    </div>
+                    <div class="actions" style="margin-top: 14px;">
+                        <button class="btn" type="submit">Upload Dataset</button>
+                    </div>
+                    <p class="message" id="uploadMessage"></p>
+                </form>
+            </section>
+
+            <section class="view-section admin-only" id="view-users">
+                <div class="section-head">
+                    <div><p class="eyebrow">Administration</p><h1>User Management</h1></div>
+                    <a class="btn secondary" href="{{ url_for('signup') }}">Create User</a>
+                </div>
+                <article class="table-card">
+                    <header><h3>Registered Accounts</h3><span class="pill" id="userCount">0 users</span></header>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersBody"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <section class="view-section" id="view-insights">
+                <div class="section-head">
+                    <div><p class="eyebrow">AI insights engine</p><h1>Recommendations</h1></div>
+                </div>
+                <div class="insight-grid" id="insightGrid"></div>
+            </section>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

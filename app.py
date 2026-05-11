@@ -85,7 +85,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_d
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.permanent_session_lifetime = timedelta(days=30)
 CORS(app)
-os.makedirs(app.instance_path, exist_ok=True)
+if not os.environ.get("VERCEL"):
+    os.makedirs(app.instance_path, exist_ok=True)
 
 db = SQLAlchemy(app)
 

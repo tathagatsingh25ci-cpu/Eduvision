@@ -1025,7 +1025,8 @@ def seed_demo_data():
     if not Teacher.query.filter_by(employee_id="TCH001").first():
         db.session.add(Teacher(name="Aarav Mehta", employee_id="TCH001", subject="Mathematics", email="teacher@eduvision.ai"))
 
-    for roll, name, class_name, section, stream, attendance, internal, semester, marks in build_demo_students(100):
+    demo_students = build_demo_students(100)
+    for roll, name, class_name, section, stream, attendance, internal, semester, marks in demo_students:
         if not Student.query.filter_by(roll_number=roll).first():
             student = Student(
                 roll_number=roll,
@@ -1041,7 +1042,7 @@ def seed_demo_data():
             db.session.add(student)
         ensure_user(roll, "student123", "student", name)
 
-    link_parent_to_students(parent_user, ["STU001", "STU002"], "Parent")
+    link_parent_to_students(parent_user, [student[0] for student in demo_students], "Parent")
 
 
 def dashboard_stats_payload(students=None):

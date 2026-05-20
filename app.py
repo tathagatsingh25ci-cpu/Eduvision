@@ -91,7 +91,7 @@ app.permanent_session_lifetime = timedelta(days=30)
 CORS(app)
 if not os.environ.get("VERCEL"):
     os.makedirs(app.instance_path, exist_ok=True)
-NOTES_UPLOAD_FOLDER = os.path.join(app.instance_path, "teacher_notes")
+NOTES_UPLOAD_FOLDER = "/tmp/teacher_notes" if os.environ.get("VERCEL") else os.path.join(app.instance_path, "teacher_notes")
 os.makedirs(NOTES_UPLOAD_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)

@@ -6,11 +6,12 @@ import math
 import os
 import secrets
 
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, session, redirect, url_for
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 if os.environ.get("VERCEL"):
@@ -90,6 +91,8 @@ app.permanent_session_lifetime = timedelta(days=30)
 CORS(app)
 if not os.environ.get("VERCEL"):
     os.makedirs(app.instance_path, exist_ok=True)
+NOTES_UPLOAD_FOLDER = os.path.join(app.instance_path, "teacher_notes")
+os.makedirs(NOTES_UPLOAD_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
 
@@ -775,6 +778,7 @@ def smart_attendance_payload():
                 "subject": note.subject,
                 "description": note.description or "",
                 "file_name": note.file_name or "No file",
+                "download_url": url_for("download_teacher_note", note_id=note.id) if note.file_name else "",
                 "created_at": note.created_at.strftime("%d %b, %I:%M %p"),
             }
             for note in notes
@@ -2065,10 +2069,21 @@ def manual_smart_attendance(session_id):
 @app.route("/api/teacher/notes", methods=["POST"])
 @roles_required("admin", "teacher")
 def create_teacher_note():
-    data = request_payload()
+    data = request.form.to_dict() if request.form else request_payload()
     subject_key = get_text(data, "subject_key", "mathematics")
     if subject_key not in SUBJECT_LABELS:
         return jsonify({"success": False, "message": "Choose a valid subject"}), 400
+    uploaded_file = request.files.get("note_file")
+    stored_name = get_text(data, "file_name")
+    if uploaded_file and uploaded_file.filename:
+        original_name = secure_filename(uploaded_file.filename)
+        extension = os.path.splitext(original_name)[1].lower()
+        if extension not in {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".txt"}:
+            return jsonify({"success": False, "message": "Upload PDF, DOC, PPT, or TXT notes"}), 400
+        stored_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{secrets.token_hex(4)}_{original_name}"
+        uploaded_file.save(os.path.join(NOTES_UPLOAD_FOLDER, stored_name))
+    elif not stored_name:
+        return jsonify({"success": False, "message": "Choose a notes file or enter a file name"}), 400
     note = TeacherNote(
         teacher_user_id=current_user().id,
         title=get_text(data, "title", "Class notes"),
@@ -2077,11 +2092,25 @@ def create_teacher_note():
         subject_key=subject_key,
         subject=SUBJECT_LABELS[subject_key],
         description=get_text(data, "description"),
-        file_name=get_text(data, "file_name", "notes.pdf"),
+        file_name=stored_name,
     )
     db.session.add(note)
     db.session.commit()
     return jsonify({"success": True, "note": smart_attendance_payload()["notes"][0]})
+
+
+@app.route("/api/teacher/notes/<int:note_id>/download")
+@login_required
+def download_teacher_note(note_id):
+    note = db.session.get(TeacherNote, note_id)
+    if not note or not note.file_name:
+        return jsonify({"success": False, "message": "Note file not found"}), 404
+    if current_user().role not in {"admin", "teacher", "student", "parent"}:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    path = os.path.join(NOTES_UPLOAD_FOLDER, note.file_name)
+    if not os.path.exists(path):
+        return jsonify({"success": False, "message": "This note was saved as metadata only. Upload the file again to enable download."}), 404
+    return send_from_directory(NOTES_UPLOAD_FOLDER, note.file_name, as_attachment=True)
 
 
 @app.route("/api/assistant", methods=["POST"])

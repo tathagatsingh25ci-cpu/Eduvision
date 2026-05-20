@@ -536,6 +536,7 @@
                 <strong>${escapeHtml(note.title)}</strong>
                 <p class="message">${escapeHtml(note.subject)} | Class ${escapeHtml(note.class_name)}-${escapeHtml(note.section)} | ${escapeHtml(note.file_name)}</p>
                 <p class="lead">${escapeHtml(note.description)}</p>
+                ${note.download_url ? `<div class="actions"><a class="btn secondary" href="${escapeHtml(note.download_url)}" target="_blank">Open Notes</a></div>` : ""}
             </article>
         `).join("");
         elements.smartSessionList.innerHTML = sessionHtml + noteHtml;
@@ -916,14 +917,12 @@
 
     async function createTeacherNote(event) {
         event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+        const form = event.currentTarget;
+        const payload = new FormData(form);
         try {
             showLoading(true);
-            await fetchJson("/api/teacher/notes", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+            await fetchJson("/api/teacher/notes", { method: "POST", body: payload });
+            form.reset();
             await loadDashboard();
             window.showToast("Notes added");
         } catch (error) {

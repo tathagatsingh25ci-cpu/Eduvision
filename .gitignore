@@ -9,6 +9,7 @@ __pycache__/
 instance/*.db
 instance/*.sqlite
 instance/*.sqlite3
+instance/teacher_notes/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

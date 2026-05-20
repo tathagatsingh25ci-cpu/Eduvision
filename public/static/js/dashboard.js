@@ -849,7 +849,9 @@
         ["radius_meters", "latitude", "longitude"].forEach((field) => {
             if (payload[field] !== "") payload[field] = Number(payload[field]);
         });
-        const meetingWindow = window.open("about:blank", "_blank", "noopener");
+        const defaultMeetingUrl = "https://zoom.us/start/videomeeting";
+        const initialMeetingUrl = String(payload.meeting_url || "").trim() || defaultMeetingUrl;
+        const meetingWindow = window.open(initialMeetingUrl, "_blank");
         try {
             showLoading(true);
             const data = await fetchJson("/api/smart-attendance/sessions", {
@@ -860,7 +862,9 @@
             await loadDashboard();
             switchView("attendance");
             window.showToast("Smart attendance session generated");
-            if (meetingWindow) meetingWindow.location = data.session?.meeting_url || "https://zoom.us/start/videomeeting";
+            if (meetingWindow && data.session?.meeting_url && data.session.meeting_url !== initialMeetingUrl) {
+                meetingWindow.location.href = data.session.meeting_url;
+            }
         } catch (error) {
             if (meetingWindow) meetingWindow.close();
             window.showToast(error.message);

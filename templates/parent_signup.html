@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Sign Up - EduVision AI{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <nav class="container nav">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">EV</span>
+            <span>EduVision AI</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn secondary" href="{{ url_for('signup') }}">School Sign Up</a>
+            <a class="btn" href="{{ url_for('parent_login') }}">Parent Sign In</a>
+        </div>
+    </nav>
+</header>
+
+<main class="container login-wrap">
+    <section>
+        <p class="eyebrow">Guardian onboarding</p>
+        <h1>Create a <span class="gradient-text">parent portal</span></h1>
+        <p class="lead">
+            Link one or more wards with roll numbers, then monitor attendance, marks, AI reports, and urgent academic messages.
+        </p>
+        <div class="auth-visual">
+            <img src="{{ url_for('static', filename='images/hero-analytics.png') }}" alt="Parent portal analytics">
+            <div class="mini-stat-grid">
+                <div><span>Roll Link</span><strong>Multi-ward</strong></div>
+                <div><span>Messages</span><strong>Automatic</strong></div>
+                <div><span>Reports</span><strong>PDF ready</strong></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <p class="eyebrow">New guardian account</p>
+        <h2>Parent Sign Up</h2>
+        <form id="parentSignupForm">
+            <input type="hidden" name="role" value="parent">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>Parent Full Name <input name="full_name" autocomplete="name" required></label>
+                <label>Username <input name="username" autocomplete="username" placeholder="parent13" required></label>
+                <label>Email <input name="email" type="email" autocomplete="email" placeholder="parent@example.com"></label>
+                <label>Ward Roll Number(s) <input name="ward_roll_numbers" placeholder="STU001, STU002" required></label>
+                <label>Relationship <input name="relationship" value="Parent"></label>
+                <label>Password
+                    <span class="password-field">
+                        <input name="password" type="password" autocomplete="new-password" required minlength="6">
+                        <button type="button" class="icon-btn" data-toggle-password aria-label="Show password">Show</button>
+                    </span>
+                </label>
+            </div>
+            <div class="form-row">
+                <label class="check-row"><input name="terms" type="checkbox" required> I agree to secure ward data access</label>
+                <a class="subtle-link" href="{{ url_for('parent_login') }}">Already registered?</a>
+            </div>
+            <div class="actions" style="margin-top: 16px;">
+                <button class="btn" type="submit">Create Parent Account</button>
+            </div>
+            <p id="parentSignupMessage" class="message" role="status"></p>
+        </form>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById("parentSignupForm");
+const message = document.getElementById("parentSignupMessage");
+
+document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = button.closest(".password-field").querySelector("input");
+        const visible = input.type === "text";
+        input.type = visible ? "password" : "text";
+        button.textContent = visible ? "Show" : "Hide";
+    });
+});
+
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    message.textContent = "";
+    message.className = "message";
+
+    try {
+        const response = await fetch("{{ url_for('parent_signup') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Sign up failed");
+        }
+        window.location.href = data.redirect || "{{ url_for('parent_dashboard') }}";
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "message error";
+    }
+});
+</script>
+{% endblock %}

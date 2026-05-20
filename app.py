@@ -70,7 +70,7 @@ SUBJECT_SHORT_LABELS = {
 }
 
 STREAMS = ["Science", "Commerce", "Arts"]
-ROLE_CHOICES = {"admin", "teacher", "student"}
+ROLE_CHOICES = {"admin", "teacher", "student", "parent"}
 
 
 def default_database_uri():
@@ -120,6 +120,17 @@ class Teacher(db.Model):
     employee_id = db.Column(db.String(20), unique=True, nullable=False)
     subject = db.Column(db.String(50))
     email = db.Column(db.String(120))
+
+
+class ParentStudent(db.Model):
+    __tablename__ = "parent_students"
+    __table_args__ = (db.UniqueConstraint("parent_user_id", "student_id", name="uq_parent_student"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    parent_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    relationship = db.Column(db.String(40), default="Parent")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Student(db.Model):
@@ -472,6 +483,77 @@ def attendance_portal_payload(students=None):
     }
 
 
+def parent_messages_payload(students=None):
+    students = students if students is not None else scoped_students().all()
+    messages = []
+    for student in students:
+        rows = class_attendance_rows(student)
+        overall_attended = sum(row["attended_classes"] for row in rows)
+        overall_total = sum(row["total_classes"] for row in rows)
+        overall_attendance = round(overall_attended / overall_total * 100, 1) if overall_total else float(student.attendance or 0)
+
+        if overall_attendance < 75:
+            messages.append(
+                {
+                    "type": "attendance",
+                    "tone": "danger" if overall_attendance < 65 else "warning",
+                    "student_id": student.id,
+                    "student_name": student.name,
+                    "title": f"{student.name} is below attendance requirement",
+                    "text": f"Overall attendance is {overall_attendance}%. Please follow up so the ward crosses 75%.",
+                    "meta": f"Roll {student.roll_number} | {max(0, overall_total - overall_attended)} missed classes",
+                }
+            )
+
+        for row in rows:
+            if row["missed_classes"] >= 3 or row["percentage"] < 75:
+                messages.append(
+                    {
+                        "type": "absence",
+                        "tone": "warning" if row["percentage"] >= 65 else "danger",
+                        "student_id": student.id,
+                        "student_name": student.name,
+                        "title": f"Absence alert in {row['subject']}",
+                        "text": f"{student.name} missed {row['missed_classes']} of {row['total_classes']} classes in {row['subject']}.",
+                        "meta": f"{row['percentage']}% attendance | {row['status']}",
+                    }
+                )
+
+        weak_subjects = []
+        for field, label in SUBJECT_LABELS.items():
+            mark = float(getattr(student, field, 0) or 0)
+            if mark < 50:
+                weak_subjects.append((label, mark))
+        for label, mark in weak_subjects[:5]:
+            messages.append(
+                {
+                    "type": "marks",
+                    "tone": "danger",
+                    "student_id": student.id,
+                    "student_name": student.name,
+                    "title": f"Low marks in {label}",
+                    "text": f"{student.name} scored {mark:.1f} in {label}. A focused revision plan is recommended.",
+                    "meta": f"Roll {student.roll_number} | Below 50",
+                }
+            )
+
+        if not weak_subjects and overall_attendance >= 75:
+            messages.append(
+                {
+                    "type": "positive",
+                    "tone": "success",
+                    "student_id": student.id,
+                    "student_name": student.name,
+                    "title": f"{student.name} is on track",
+                    "text": "Marks and attendance are currently in a healthy range.",
+                    "meta": f"{calculate_percentage(student)}% marks | {overall_attendance}% attendance",
+                }
+            )
+
+    tone_order = {"danger": 0, "warning": 1, "success": 2}
+    return sorted(messages, key=lambda item: (tone_order.get(item["tone"], 3), item["student_name"]))[:24]
+
+
 def recommendations_for_student(student, predicted_percentage, strong_subjects, weak_subjects):
     recommendations = []
     if weak_subjects:
@@ -605,7 +687,13 @@ def roles_required(*roles):
 
 def can_view_student(student):
     user = current_user()
-    return bool(user and (user.role in {"admin", "teacher"} or student.roll_number == user.username))
+    if not user:
+        return False
+    if user.role in {"admin", "teacher"} or student.roll_number == user.username:
+        return True
+    if user.role == "parent":
+        return ParentStudent.query.filter_by(parent_user_id=user.id, student_id=student.id).first() is not None
+    return False
 
 
 def scoped_students():
@@ -613,6 +701,9 @@ def scoped_students():
     query = Student.query
     if user and user.role == "student":
         query = query.filter_by(roll_number=user.username)
+    elif user and user.role == "parent":
+        linked_ids = [link.student_id for link in ParentStudent.query.filter_by(parent_user_id=user.id).all()]
+        query = query.filter(Student.id.in_(linked_ids or [0]))
     return query
 
 
@@ -752,6 +843,26 @@ def ensure_student_user(student):
     ensure_user(student.roll_number, "student123", "student", student.name)
 
 
+def link_parent_to_students(parent_user, roll_numbers, relationship="Parent"):
+    linked = []
+    missing = []
+    seen = set()
+    for raw_roll in roll_numbers:
+        roll = str(raw_roll or "").strip()
+        if not roll or roll.lower() in seen:
+            continue
+        seen.add(roll.lower())
+        student = Student.query.filter_by(roll_number=roll).first()
+        if not student:
+            missing.append(roll)
+            continue
+        existing = ParentStudent.query.filter_by(parent_user_id=parent_user.id, student_id=student.id).first()
+        if not existing:
+            db.session.add(ParentStudent(parent_user_id=parent_user.id, student_id=student.id, relationship=relationship or "Parent"))
+        linked.append(student)
+    return linked, missing
+
+
 def start_user_session(user, remember=False):
     session.permanent = bool(remember)
     session["user_id"] = user.id
@@ -841,6 +952,7 @@ def migrate_legacy_data():
 def seed_demo_data():
     admin_user = ensure_user("admin", "admin123", "admin", "System Admin", "admin@eduvision.ai")
     ensure_user("teacher", "teacher123", "teacher", "Aarav Mehta", "teacher@eduvision.ai")
+    parent_user = ensure_user("parent", "parent123", "parent", "Priya Rao", "parent@eduvision.ai")
 
     if not Admin.query.filter_by(username="admin").first():
         db.session.add(Admin(user_id=admin_user.id, username="admin", full_name="System Admin", email="admin@eduvision.ai"))
@@ -877,6 +989,8 @@ def seed_demo_data():
             )
             db.session.add(student)
             ensure_user(roll, "student123", "student", name)
+
+    link_parent_to_students(parent_user, ["STU001", "STU002"], "Parent")
 
 
 def dashboard_stats_payload(students=None):
@@ -1135,6 +1249,28 @@ def login():
     return render_template("login.html")
 
 
+@app.route("/parent/login", methods=["GET", "POST"])
+def parent_login():
+    if request.method == "POST":
+        data = request_payload()
+        data["role"] = "parent"
+        username = (data.get("username") or "").strip()
+        password = data.get("password") or ""
+        remember = checkbox_enabled(data.get("remember"))
+        if not username or not password:
+            return jsonify({"success": False, "message": "Username and password are required"}), 400
+
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password, password):
+            return jsonify({"success": False, "message": "Invalid credentials"}), 401
+        if user.role != "parent":
+            return jsonify({"success": False, "message": f"This account is registered as {user.role}"}), 403
+
+        start_user_session(user, remember)
+        return jsonify({"success": True, "role": user.role, "redirect": url_for("parent_dashboard")})
+    return render_template("parent_login.html")
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
@@ -1146,7 +1282,7 @@ def signup():
         email = (data.get("email") or "").strip() or None
 
         if role not in ROLE_CHOICES:
-            return jsonify({"success": False, "message": "Choose admin, teacher, or student role"}), 400
+            return jsonify({"success": False, "message": "Choose admin, teacher, student, or parent role"}), 400
         if not username or not password:
             return jsonify({"success": False, "message": "Username and password are required"}), 400
         if len(password) < 6:
@@ -1170,6 +1306,12 @@ def signup():
             employee_id = (data.get("employee_id") or username).strip()
             subject = (data.get("subject") or "Academic Analytics").strip()
             db.session.add(Teacher(name=full_name or username, employee_id=employee_id, subject=subject, email=email))
+        elif role == "parent":
+            roll_numbers = [item.strip() for item in (data.get("ward_roll_numbers") or data.get("ward_roll_number") or "").replace(";", ",").split(",")]
+            linked, missing = link_parent_to_students(user, roll_numbers, data.get("relationship") or "Parent")
+            if not linked:
+                db.session.rollback()
+                return jsonify({"success": False, "message": "Enter at least one valid ward roll number"}), 400
         else:
             existing_student = Student.query.filter_by(roll_number=username).first()
             if existing_student:
@@ -1205,6 +1347,15 @@ def signup():
     return render_template("signup.html")
 
 
+@app.route("/parent/signup", methods=["GET", "POST"])
+def parent_signup():
+    if request.method == "POST":
+        data = request_payload()
+        data["role"] = "parent"
+        return signup()
+    return render_template("parent_signup.html")
+
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -1234,6 +1385,12 @@ def teacher_dashboard():
 @roles_required("student")
 def student_dashboard():
     return render_template("dashboard.html", role="student", user=current_user())
+
+
+@app.route("/parent/dashboard")
+@roles_required("parent")
+def parent_dashboard():
+    return render_template("dashboard.html", role="parent", user=current_user())
 
 
 @app.route("/api/session")
@@ -1445,6 +1602,93 @@ def update_class_attendance(student_id, subject_key):
     return jsonify({"success": True, "student": serialize_student(student, detail=True), "attendance": attendance_portal_payload([student])})
 
 
+@app.route("/api/attendance/pdf/<int:student_id>")
+@login_required
+def attendance_pdf(student_id):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify({"success": False, "message": "Student not found"}), 404
+    if not can_view_student(student):
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+
+    rows = class_attendance_rows(student)
+    attended = sum(row["attended_classes"] for row in rows)
+    total = sum(row["total_classes"] for row in rows)
+    percentage = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=36, bottomMargin=36)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="SmallMutedAttendance", parent=styles["Normal"], textColor=colors.HexColor("#4f5f6f"), fontSize=8))
+    story = [
+        Paragraph("EduVision AI - Attendance Report", styles["Title"]),
+        Paragraph(f"{student.name} | Roll No: {student.roll_number}", styles["Heading2"]),
+        Paragraph(datetime.utcnow().strftime("Generated on %d %b %Y, %I:%M %p UTC"), styles["SmallMutedAttendance"]),
+        Spacer(1, 12),
+    ]
+
+    summary_data = [
+        ["Class", f"{student.class_name}-{student.section or '-'}", "Stream", student.stream or "-"],
+        ["Overall Attendance", f"{percentage:.1f}%", "Status", attendance_status(percentage)],
+        ["Attended Classes", str(attended), "Total Classes", str(total)],
+        ["Missed Classes", str(max(0, total - attended)), "Minimum Target", "75%"],
+    ]
+    summary_table = Table(summary_data, colWidths=[115, 145, 115, 145])
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f6f8fb")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#0f172a")),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d5dde8")),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+            ]
+        )
+    )
+    story.append(summary_table)
+    story.append(Spacer(1, 14))
+
+    attendance_rows = [["Subject", "Attended", "Total", "Missed", "Attendance", "Status"]]
+    for row in rows:
+        attendance_rows.append(
+            [
+                row["subject"],
+                str(row["attended_classes"]),
+                str(row["total_classes"]),
+                str(row["missed_classes"]),
+                f"{row['percentage']:.1f}%",
+                row["status"],
+            ]
+        )
+    table = Table(attendance_rows, colWidths=[150, 68, 62, 62, 86, 86])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#061528")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d5dde8")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    story.append(table)
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("<b>Parent Note:</b> Attendance below 75% needs immediate follow-up with the class mentor.", styles["Normal"]))
+
+    doc.build(story)
+    buffer.seek(0)
+    safe_name = student.name.replace(" ", "_")
+    return send_file(buffer, as_attachment=True, download_name=f"{safe_name}_attendance.pdf", mimetype="application/pdf")
+
+
+@app.route("/api/parent/messages")
+@roles_required("parent")
+def parent_messages():
+    messages = parent_messages_payload(scoped_students().all())
+    db.session.commit()
+    return jsonify({"messages": messages})
+
+
 @app.route("/api/users")
 @roles_required("admin")
 def list_users():
@@ -1612,6 +1856,7 @@ def analytics_overview():
             "heatmap": heatmap_payload(students),
             "toppers": topper_payload(students),
             "attendance_portal": attendance_portal_payload(students),
+            "parent_messages": parent_messages_payload(students) if current_user().role == "parent" else [],
             "insights": insights_payload(students),
             "recent_activity": recent_activity_payload(students),
         }

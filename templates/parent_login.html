@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Login - EduVision AI{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <nav class="container nav">
+        <a href="{{ url_for('index') }}" class="brand">
+            <span class="brand-mark">EV</span>
+            <span>EduVision AI</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn secondary" href="{{ url_for('login') }}">School Login</a>
+            <a class="btn" href="{{ url_for('parent_signup') }}">Parent Sign Up</a>
+        </div>
+    </nav>
+</header>
+
+<main class="container login-wrap">
+    <section>
+        <p class="eyebrow">Parent access</p>
+        <h1>Track your ward's <span class="gradient-text">marks and attendance</span></h1>
+        <p class="lead">
+            Parents can view linked student reports, attendance health, low-mark warnings, and absence alerts from one secure portal.
+        </p>
+        <div class="auth-visual">
+            <img src="{{ url_for('static', filename='images/hero-analytics.png') }}" alt="Parent analytics workspace">
+            <div class="mini-stat-grid">
+                <div><span>Wards</span><strong>Linked</strong></div>
+                <div><span>Alerts</span><strong>Attendance + Marks</strong></div>
+                <div><span>PDF</span><strong>Downloadable</strong></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <p class="eyebrow">Guardian portal</p>
+        <h2>Parent Sign In</h2>
+        <form id="parentLoginForm">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
+                <label>Username <input name="username" autocomplete="username" value="parent" required></label>
+                <label>Password
+                    <span class="password-field">
+                        <input name="password" type="password" autocomplete="current-password" value="parent123" required>
+                        <button type="button" class="icon-btn" data-toggle-password aria-label="Show password">Show</button>
+                    </span>
+                </label>
+            </div>
+            <div class="form-row">
+                <label class="check-row"><input name="remember" type="checkbox" value="1"> Remember me</label>
+                <a class="subtle-link" href="{{ url_for('parent_signup') }}">Create parent account</a>
+            </div>
+            <div class="actions" style="margin-top: 16px;">
+                <button class="btn" type="submit">Open Parent Portal</button>
+            </div>
+            <p id="parentLoginMessage" class="message" role="status"></p>
+        </form>
+        <div class="credentials">
+            <div><strong>Demo Parent:</strong> parent / parent123</div>
+            <div><strong>Linked Wards:</strong> STU001, STU002</div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById("parentLoginForm");
+const message = document.getElementById("parentLoginMessage");
+
+document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = button.closest(".password-field").querySelector("input");
+        const visible = input.type === "text";
+        input.type = visible ? "password" : "text";
+        button.textContent = visible ? "Show" : "Hide";
+    });
+});
+
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    message.textContent = "";
+    message.className = "message";
+
+    try {
+        const response = await fetch("{{ url_for('parent_login') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Login failed");
+        }
+        window.location.href = data.redirect || "{{ url_for('parent_dashboard') }}";
+    } catch (error) {
+        message.textContent = error.message;
+        message.className = "message error";
+    }
+});
+</script>
+{% endblock %}

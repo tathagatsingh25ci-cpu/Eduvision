@@ -4,6 +4,8 @@
 
     const role = shell.dataset.role;
     const isStudent = role === "student";
+    const isParent = role === "parent";
+    const canManageStudents = role === "admin" || role === "teacher";
     const charts = {};
     let dashboardData = null;
     let selectedStudent = null;
@@ -78,6 +80,7 @@
         attendanceDetailTitle: document.getElementById("attendanceDetailTitle"),
         attendanceDetailStatus: document.getElementById("attendanceDetailStatus"),
         attendanceDetail: document.getElementById("attendanceDetail"),
+        parentAlertGrid: document.getElementById("parentAlertGrid"),
         reportPdfLink: document.getElementById("reportPdfLink"),
         selectedPdfLink: document.getElementById("selectedPdfLink"),
         usersBody: document.getElementById("usersBody"),
@@ -117,11 +120,12 @@
     }
 
     function applyRoleVisibility() {
-        document.querySelectorAll(".admin-only, .teacher-only, .student-only").forEach((node) => {
+        document.querySelectorAll(".admin-only, .teacher-only, .student-only, .parent-only").forEach((node) => {
             const allowed =
                 (role === "admin" && node.classList.contains("admin-only")) ||
                 (role === "teacher" && node.classList.contains("teacher-only")) ||
-                (role === "student" && node.classList.contains("student-only"));
+                (role === "student" && node.classList.contains("student-only")) ||
+                (role === "parent" && node.classList.contains("parent-only"));
             node.classList.toggle("hidden", !allowed);
         });
     }
@@ -227,8 +231,8 @@
                 <td>
                     <div class="actions">
                         <button class="btn secondary" type="button" data-action="view" data-id="${student.id}">View</button>
-                        ${isStudent ? "" : `<button class="btn secondary" type="button" data-action="edit" data-id="${student.id}">Edit</button>
-                        <button class="btn danger" type="button" data-action="delete" data-id="${student.id}">Delete</button>`}
+                        ${canManageStudents ? `<button class="btn secondary" type="button" data-action="edit" data-id="${student.id}">Edit</button>
+                        <button class="btn danger" type="button" data-action="delete" data-id="${student.id}">Delete</button>` : ""}
                     </div>
                 </td>
             </tr>
@@ -551,13 +555,17 @@
                 </div>
                 <div class="progress"><div class="progress-fill" style="width: ${Math.min(100, Number(entry.percentage))}%"></div></div>
                 <p class="message">${escapeHtml(entry.next_action)}</p>
-                ${isStudent ? "" : `
+                <div class="actions">
+                    <a class="btn secondary" href="/api/attendance/pdf/${student.id}" target="_blank">Attendance PDF</a>
+                    <a class="btn secondary" href="/api/report/pdf/${student.id}" target="_blank">Report PDF</a>
+                </div>
+                ${canManageStudents ? `
                     <form class="attendance-edit-form" data-student="${student.id}" data-subject="${escapeHtml(entry.subject_key)}">
                         <label>Attended <input name="attended_classes" type="number" min="0" max="500" value="${escapeHtml(entry.attended_classes)}"></label>
                         <label>Total <input name="total_classes" type="number" min="1" max="500" value="${escapeHtml(entry.total_classes)}"></label>
                         <button class="btn secondary" type="submit">Update</button>
                     </form>
-                `}
+                ` : ""}
             </article>
         `).join("");
 
@@ -575,6 +583,32 @@
         elements.attendanceDetail.querySelectorAll(".attendance-edit-form").forEach((form) => {
             form.addEventListener("submit", updateAttendanceClass);
         });
+    }
+
+    function renderParentMessages(messages = []) {
+        if (!elements.parentAlertGrid) return;
+        if (!messages.length) {
+            elements.parentAlertGrid.innerHTML = `
+                <article class="insight-card">
+                    <span class="pill success">Clear</span>
+                    <h3 style="margin-top: 12px;">No urgent messages</h3>
+                    <p class="lead">Your linked wards are currently clear of low-mark and attendance warnings.</p>
+                </article>
+            `;
+            return;
+        }
+        elements.parentAlertGrid.innerHTML = messages.map((item) => `
+            <article class="parent-alert-card ${escapeHtml(item.tone)}">
+                <span class="pill ${escapeHtml(item.tone)}">${escapeHtml(item.type)}</span>
+                <h3>${escapeHtml(item.title)}</h3>
+                <p class="lead">${escapeHtml(item.text)}</p>
+                <p class="message">${escapeHtml(item.meta)}</p>
+                <div class="actions">
+                    <a class="btn secondary" href="/api/report/pdf/${item.student_id}" target="_blank">Report PDF</a>
+                    <a class="btn secondary" href="/api/attendance/pdf/${item.student_id}" target="_blank">Attendance PDF</a>
+                </div>
+            </article>
+        `).join("");
     }
 
     async function updateAttendanceClass(event) {
@@ -831,6 +865,7 @@
             renderRecentActivity(dashboardData.recent_activity);
             renderToppers(dashboardData.toppers);
             renderAttendancePortal(dashboardData.attendance_portal);
+            renderParentMessages(dashboardData.parent_messages || []);
             if (dashboardData.students.length && !selectedStudent) {
                 await selectStudent(dashboardData.students[0].id, false);
             }

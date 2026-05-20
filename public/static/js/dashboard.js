@@ -7,6 +7,7 @@
     const charts = {};
     let dashboardData = null;
     let selectedStudent = null;
+    let selectedAttendanceId = null;
     let searchTimer = null;
 
     const numberFields = [
@@ -67,6 +68,16 @@
         leaderboardList: document.getElementById("leaderboardList"),
         subjectToppersBody: document.getElementById("subjectToppersBody"),
         heatmapGrid: document.getElementById("heatmapGrid"),
+        attendanceRing: document.getElementById("attendanceRing"),
+        attendanceRingValue: document.getElementById("attendanceRingValue"),
+        attendanceHeroTitle: document.getElementById("attendanceHeroTitle"),
+        attendanceHeroText: document.getElementById("attendanceHeroText"),
+        attendanceSummary: document.getElementById("attendanceSummary"),
+        attendanceStudentCount: document.getElementById("attendanceStudentCount"),
+        attendanceStudentList: document.getElementById("attendanceStudentList"),
+        attendanceDetailTitle: document.getElementById("attendanceDetailTitle"),
+        attendanceDetailStatus: document.getElementById("attendanceDetailStatus"),
+        attendanceDetail: document.getElementById("attendanceDetail"),
         reportPdfLink: document.getElementById("reportPdfLink"),
         selectedPdfLink: document.getElementById("selectedPdfLink"),
         usersBody: document.getElementById("usersBody"),
@@ -161,6 +172,12 @@
     function riskClass(risk) {
         if (risk === "High Risk") return "danger";
         if (risk === "Moderate Risk") return "warning";
+        return "success";
+    }
+
+    function attendancePillClass(status) {
+        if (status === "Critical") return "danger";
+        if (status === "Watch") return "warning";
         return "success";
     }
 
@@ -440,6 +457,156 @@
         `).join("");
     }
 
+    function attendancePortalData() {
+        return dashboardData?.attendance_portal || { summary: {}, students: [] };
+    }
+
+    function renderAttendancePortal(portal) {
+        if (!elements.attendanceStudentList) return;
+        const students = portal.students || [];
+        const summary = portal.summary || {};
+        const average = Number(summary.average || 0);
+
+        elements.attendanceRing?.style.setProperty("--value", average);
+        if (elements.attendanceRingValue) elements.attendanceRingValue.textContent = `${average}%`;
+        if (elements.attendanceStudentCount) elements.attendanceStudentCount.textContent = `${students.length} students`;
+        if (elements.attendanceHeroTitle) elements.attendanceHeroTitle.textContent = isStudent ? "My Attendance" : "Attendance Command";
+        if (elements.attendanceHeroText) {
+            elements.attendanceHeroText.textContent = `${summary.healthy_count || 0} healthy, ${summary.watch_count || 0} on watch, ${summary.critical_count || 0} critical across class attendance records.`;
+        }
+
+        if (elements.attendanceSummary) {
+            elements.attendanceSummary.innerHTML = [
+                ["Average", average, "%"],
+                ["Healthy", summary.healthy_count || 0, ""],
+                ["Watch", summary.watch_count || 0, ""],
+                ["Critical", summary.critical_count || 0, ""],
+            ].map(([label, value, suffix]) => `
+                <article class="metric-card compact">
+                    <div class="metric-label">${escapeHtml(label)}</div>
+                    <div class="metric-value">${escapeHtml(value)}${escapeHtml(suffix)}</div>
+                </article>
+            `).join("");
+        }
+
+        if (!students.length) {
+            elements.attendanceStudentList.innerHTML = `<p class="lead">No attendance records found.</p>`;
+            renderAttendanceDetail(null);
+            return;
+        }
+
+        if (!selectedAttendanceId || !students.some((item) => String(item.student.id) === String(selectedAttendanceId))) {
+            selectedAttendanceId = students[0].student.id;
+        }
+
+        elements.attendanceStudentList.innerHTML = students.map((item) => {
+            const student = item.student;
+            const active = String(student.id) === String(selectedAttendanceId) ? "active" : "";
+            return `
+                <button class="attendance-row ${active}" type="button" data-attendance-student="${student.id}">
+                    <span class="rank-badge">${escapeHtml(student.rank)}</span>
+                    <span>
+                        <strong>${escapeHtml(student.name)}</strong>
+                        <small>${escapeHtml(student.roll_number)} | Class ${escapeHtml(student.class_name)}-${escapeHtml(student.section || "")}</small>
+                    </span>
+                    <span class="attendance-row-score">
+                        <strong>${escapeHtml(item.overall_percentage)}%</strong>
+                        <small>${escapeHtml(item.missed_classes)} missed</small>
+                    </span>
+                </button>
+            `;
+        }).join("");
+
+        elements.attendanceStudentList.querySelectorAll("[data-attendance-student]").forEach((button) => {
+            button.addEventListener("click", () => {
+                selectedAttendanceId = button.dataset.attendanceStudent;
+                renderAttendancePortal(attendancePortalData());
+            });
+        });
+
+        const selected = students.find((item) => String(item.student.id) === String(selectedAttendanceId));
+        renderAttendanceDetail(selected);
+    }
+
+    function renderAttendanceDetail(item) {
+        if (!elements.attendanceDetail) return;
+        if (!item) {
+            elements.attendanceDetail.innerHTML = `<p class="lead">Open a student to review class attendance.</p>`;
+            return;
+        }
+
+        const student = item.student;
+        elements.attendanceDetailTitle.textContent = student.name;
+        elements.attendanceDetailStatus.textContent = item.status;
+        elements.attendanceDetailStatus.className = `pill ${attendancePillClass(item.status)}`;
+
+        const classRows = item.classes.map((entry) => `
+            <article class="attendance-class-card" data-subject="${escapeHtml(entry.subject_key)}">
+                <div class="attendance-class-head">
+                    <div>
+                        <strong>${escapeHtml(entry.subject)}</strong>
+                        <span class="muted">${escapeHtml(entry.attended_classes)} of ${escapeHtml(entry.total_classes)} classes attended</span>
+                    </div>
+                    <span class="pill ${attendancePillClass(entry.status)}">${escapeHtml(entry.percentage)}%</span>
+                </div>
+                <div class="progress"><div class="progress-fill" style="width: ${Math.min(100, Number(entry.percentage))}%"></div></div>
+                <p class="message">${escapeHtml(entry.next_action)}</p>
+                ${isStudent ? "" : `
+                    <form class="attendance-edit-form" data-student="${student.id}" data-subject="${escapeHtml(entry.subject_key)}">
+                        <label>Attended <input name="attended_classes" type="number" min="0" max="500" value="${escapeHtml(entry.attended_classes)}"></label>
+                        <label>Total <input name="total_classes" type="number" min="1" max="500" value="${escapeHtml(entry.total_classes)}"></label>
+                        <button class="btn secondary" type="submit">Update</button>
+                    </form>
+                `}
+            </article>
+        `).join("");
+
+        elements.attendanceDetail.innerHTML = `
+            <div class="attendance-profile-strip">
+                <div><span class="metric-label">Overall</span><strong>${escapeHtml(item.overall_percentage)}%</strong></div>
+                <div><span class="metric-label">Attended</span><strong>${escapeHtml(item.attended_classes)}</strong></div>
+                <div><span class="metric-label">Total</span><strong>${escapeHtml(item.total_classes)}</strong></div>
+                <div><span class="metric-label">Low Subjects</span><strong>${escapeHtml(item.low_subject_count)}</strong></div>
+            </div>
+            ${item.lowest_subject ? `<p class="lead">Lowest attendance: ${escapeHtml(item.lowest_subject.subject)} at ${escapeHtml(item.lowest_subject.percentage)}%.</p>` : ""}
+            <div class="attendance-class-grid">${classRows}</div>
+        `;
+
+        elements.attendanceDetail.querySelectorAll(".attendance-edit-form").forEach((form) => {
+            form.addEventListener("submit", updateAttendanceClass);
+        });
+    }
+
+    async function updateAttendanceClass(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const payload = Object.fromEntries(new FormData(form).entries());
+        payload.attended_classes = Number(payload.attended_classes || 0);
+        payload.total_classes = Number(payload.total_classes || 0);
+        if (payload.attended_classes > payload.total_classes) {
+            window.showToast("Attended classes cannot exceed total classes");
+            return;
+        }
+        try {
+            showLoading(true);
+            await fetchJson(`/api/attendance/${form.dataset.student}/${form.dataset.subject}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const portal = await fetchJson("/api/attendance");
+            dashboardData.attendance_portal = portal;
+            renderAttendancePortal(portal);
+            await loadDashboard();
+            switchView("attendance");
+            window.showToast("Attendance updated");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
     function populateSelfMarksForm(student) {
         if (!elements.selfMarksForm || role !== "student") return;
         const form = elements.selfMarksForm;
@@ -663,6 +830,7 @@
             renderInsights(dashboardData.insights);
             renderRecentActivity(dashboardData.recent_activity);
             renderToppers(dashboardData.toppers);
+            renderAttendancePortal(dashboardData.attendance_portal);
             if (dashboardData.students.length && !selectedStudent) {
                 await selectStudent(dashboardData.students[0].id, false);
             }

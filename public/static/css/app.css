@@ -995,6 +995,15 @@ input[type="checkbox"] {
     transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
+.metric-card.compact {
+    min-height: 92px;
+    padding: 14px;
+}
+
+.metric-card.compact .metric-value {
+    font-size: 1.8rem;
+}
+
 .metric-card:hover {
     transform: translateY(-3px);
     border-color: var(--line-strong);
@@ -1213,6 +1222,147 @@ tbody tr:hover {
     font-size: 1.35rem;
 }
 
+.attendance-hero {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
+    gap: 18px;
+}
+
+.attendance-ring-card {
+    display: grid;
+    grid-template-columns: 154px minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(34, 197, 94, 0.08)),
+        rgba(8, 19, 38, 0.72);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.attendance-ring {
+    --value: 0;
+    display: grid;
+    place-items: center;
+    width: 142px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, rgba(3, 7, 18, 0.94) 0 58%, transparent 59%),
+        conic-gradient(var(--green) calc(var(--value) * 1%), rgba(129, 230, 217, 0.13) 0);
+    box-shadow: inset 0 0 28px rgba(34, 211, 238, 0.12), 0 0 28px rgba(34, 197, 94, 0.16);
+}
+
+.attendance-ring span {
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.attendance-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.attendance-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.28fr);
+    gap: 18px;
+}
+
+.attendance-list,
+.attendance-class-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.attendance-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.42);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.attendance-row:hover,
+.attendance-row.active {
+    border-color: var(--line-strong);
+    background: rgba(34, 211, 238, 0.08);
+}
+
+.attendance-row small,
+.attendance-row-score small,
+.attendance-class-head .muted {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.attendance-row-score {
+    text-align: right;
+}
+
+.attendance-profile-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.attendance-profile-strip div {
+    padding: 12px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.attendance-profile-strip strong {
+    display: block;
+    margin-top: 8px;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.5rem;
+}
+
+.attendance-class-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.attendance-class-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.attendance-class-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.attendance-edit-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    gap: 10px;
+    align-items: end;
+}
+
 .hidden {
     display: none !important;
 }
@@ -1344,8 +1494,15 @@ tbody tr:hover {
     .contact-grid,
     .detail-grid,
     .preview-band,
+    .attendance-hero,
+    .attendance-layout,
     .model-grid {
         grid-template-columns: 1fr;
+    }
+
+    .attendance-summary,
+    .attendance-class-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .filter-panel {
@@ -1413,7 +1570,15 @@ tbody tr:hover {
     .form-grid.two,
     .subject-grid,
     .mini-stat-grid,
+    .attendance-summary,
+    .attendance-profile-strip,
+    .attendance-class-grid,
+    .attendance-edit-form,
     .filter-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .attendance-ring-card {
         grid-template-columns: 1fr;
     }
 }

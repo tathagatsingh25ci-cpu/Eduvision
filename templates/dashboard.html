@@ -23,6 +23,7 @@
             <a class="sidebar-link active" href="#overview" data-view="overview"><span class="sidebar-icon">OV</span>Overview</a>
             <a class="sidebar-link" href="#analytics" data-view="analytics"><span class="sidebar-icon">AN</span>Analytics</a>
             <a class="sidebar-link" href="#students" data-view="students"><span class="sidebar-icon">ST</span>Students</a>
+            <a class="sidebar-link" href="#attendance" data-view="attendance"><span class="sidebar-icon">AT</span>Attendance</a>
             <a class="sidebar-link" href="#prediction" data-view="prediction"><span class="sidebar-icon">AI</span>Prediction</a>
             <a class="sidebar-link" href="#toppers" data-view="toppers"><span class="sidebar-icon">TP</span>Toppers</a>
             <a class="sidebar-link" href="#reports" data-view="reports"><span class="sidebar-icon">RP</span>Reports</a>
@@ -240,6 +241,45 @@
                             <p class="message" id="selfMarksMessage"></p>
                         </form>
                     </aside>
+                </div>
+            </section>
+
+            <section class="view-section" id="view-attendance">
+                <div class="section-head">
+                    <div><p class="eyebrow">Class attendance portal</p><h1>Attendance Command</h1></div>
+                    <div class="chip-row">
+                        <span class="chip">Subject-wise Classes</span>
+                        <span class="chip">75% Watch</span>
+                        <span class="chip">Student Ready</span>
+                    </div>
+                </div>
+
+                <div class="attendance-hero">
+                    <article class="attendance-ring-card">
+                        <div class="attendance-ring" id="attendanceRing" style="--value: 0;">
+                            <span id="attendanceRingValue">0%</span>
+                        </div>
+                        <div>
+                            <p class="eyebrow">Overall attendance</p>
+                            <h3 id="attendanceHeroTitle">Attendance Portal</h3>
+                            <p class="lead" id="attendanceHeroText">Class-wise attendance will appear here after your records load.</p>
+                        </div>
+                    </article>
+                    <div class="attendance-summary" id="attendanceSummary"></div>
+                </div>
+
+                <div class="attendance-layout">
+                    <article class="table-card">
+                        <header><h3>Class Attendance</h3><span class="pill" id="attendanceStudentCount">0 students</span></header>
+                        <div class="attendance-list" id="attendanceStudentList"></div>
+                    </article>
+
+                    <article class="panel">
+                        <header><h3 id="attendanceDetailTitle">Select a student</h3><span class="pill" id="attendanceDetailStatus">Ready</span></header>
+                        <div class="attendance-detail" id="attendanceDetail">
+                            <p class="lead">Open a student from the attendance list to see subject-wise class attendance.</p>
+                        </div>
+                    </article>
                 </div>
             </section>
 

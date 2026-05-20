@@ -182,6 +182,19 @@ class Attendance(db.Model):
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class ClassAttendance(db.Model):
+    __tablename__ = "class_attendance"
+    __table_args__ = (db.UniqueConstraint("student_id", "subject_key", name="uq_student_subject_attendance"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    subject_key = db.Column(db.String(60), nullable=False)
+    subject = db.Column(db.String(80), nullable=False)
+    attended_classes = db.Column(db.Integer, nullable=False, default=0)
+    total_classes = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class MLModel:
     """Small ensemble used for demo-ready prediction without external services."""
 
@@ -330,6 +343,133 @@ def risk_from_prediction(predicted_percentage, attendance):
     if predicted_percentage < 60 or attendance < 75:
         return "Moderate Risk"
     return "Low Risk"
+
+
+def attendance_status(percentage):
+    if percentage < 65:
+        return "Critical"
+    if percentage < 75:
+        return "Watch"
+    if percentage >= 92:
+        return "Excellent"
+    return "Healthy"
+
+
+def attendance_action(percentage, missed_classes):
+    if percentage < 65:
+        return f"Attend the next {min(6, max(3, missed_classes))} classes without fail."
+    if percentage < 75:
+        return "Attend consistently this week to cross the 75% requirement."
+    if percentage >= 92:
+        return "Excellent consistency. Keep the current rhythm."
+    return "On track. Avoid avoidable absences."
+
+
+def default_class_attendance_counts(student, field, index):
+    attendance = clamp(float(student.attendance or 0), 0, 100)
+    mark = float(getattr(student, field, 0) or 0)
+    total_classes = 24 + (index % 4) * 2
+    subject_adjustment = (mark - 70) * 0.06
+    subject_percentage = clamp(attendance + subject_adjustment, 35, 100)
+    attended_classes = round(total_classes * subject_percentage / 100)
+    return int(attended_classes), int(total_classes)
+
+
+def ensure_class_attendance(student):
+    existing = {record.subject_key: record for record in ClassAttendance.query.filter_by(student_id=student.id).all()}
+    for index, field in enumerate(SUBJECT_FIELDS):
+        if field in existing:
+            continue
+        attended, total = default_class_attendance_counts(student, field, index)
+        db.session.add(
+            ClassAttendance(
+                student_id=student.id,
+                subject_key=field,
+                subject=SUBJECT_LABELS[field],
+                attended_classes=attended,
+                total_classes=total,
+            )
+        )
+
+
+def class_attendance_rows(student):
+    ensure_class_attendance(student)
+    db.session.flush()
+    records = {
+        record.subject_key: record
+        for record in ClassAttendance.query.filter_by(student_id=student.id).all()
+    }
+    rows = []
+    for field in SUBJECT_FIELDS:
+        record = records.get(field)
+        if not record:
+            continue
+        total = max(0, int(record.total_classes or 0))
+        attended = min(max(0, int(record.attended_classes or 0)), total)
+        percentage = round((attended / total * 100), 1) if total else 0
+        missed = max(0, total - attended)
+        rows.append(
+            {
+                "subject_key": field,
+                "subject": record.subject or SUBJECT_LABELS[field],
+                "attended_classes": attended,
+                "total_classes": total,
+                "missed_classes": missed,
+                "percentage": percentage,
+                "status": attendance_status(percentage),
+                "next_action": attendance_action(percentage, missed),
+                "updated_at": (record.updated_at or datetime.utcnow()).strftime("%d %b %Y"),
+            }
+        )
+    return rows
+
+
+def recalculate_student_attendance(student):
+    records = ClassAttendance.query.filter_by(student_id=student.id).all()
+    attended = sum(max(0, int(record.attended_classes or 0)) for record in records)
+    total = sum(max(0, int(record.total_classes or 0)) for record in records)
+    if total:
+        student.attendance = round(attended / total * 100, 1)
+
+
+def attendance_portal_payload(students=None):
+    students = students if students is not None else scoped_students().all()
+    cards = []
+    total_attended = 0
+    total_classes = 0
+    for student in students:
+        rows = class_attendance_rows(student)
+        attended = sum(row["attended_classes"] for row in rows)
+        total = sum(row["total_classes"] for row in rows)
+        total_attended += attended
+        total_classes += total
+        overall = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
+        low_subjects = [row for row in rows if row["percentage"] < 75]
+        cards.append(
+            {
+                "student": serialize_student(student),
+                "overall_percentage": overall,
+                "status": attendance_status(overall),
+                "attended_classes": attended,
+                "total_classes": total,
+                "missed_classes": max(0, total - attended),
+                "low_subject_count": len(low_subjects),
+                "lowest_subject": min(rows, key=lambda row: row["percentage"]) if rows else None,
+                "classes": rows,
+            }
+        )
+
+    overall_average = round(total_attended / total_classes * 100, 1) if total_classes else 0
+    return {
+        "summary": {
+            "average": overall_average,
+            "healthy_count": sum(1 for card in cards if card["overall_percentage"] >= 75),
+            "watch_count": sum(1 for card in cards if card["overall_percentage"] < 75),
+            "critical_count": sum(1 for card in cards if card["overall_percentage"] < 65),
+            "total_students": len(cards),
+        },
+        "students": cards,
+    }
 
 
 def recommendations_for_student(student, predicted_percentage, strong_subjects, weak_subjects):
@@ -570,8 +710,8 @@ def sync_student_records(student):
     for field, label in SUBJECT_LABELS.items():
         db.session.add(Mark(student_id=student.id, subject=label, marks=float(getattr(student, field, 0) or 0)))
 
-    attendance_status = "Critical" if float(student.attendance or 0) < 65 else "Watch" if float(student.attendance or 0) < 75 else "Healthy"
-    db.session.add(Attendance(student_id=student.id, percentage=float(student.attendance or 0), status=attendance_status))
+    ensure_class_attendance(student)
+    db.session.add(Attendance(student_id=student.id, percentage=float(student.attendance or 0), status=attendance_status(float(student.attendance or 0))))
 
     prediction = prediction_payload(student)
     db.session.add(
@@ -589,6 +729,7 @@ def sync_student_records(student):
 
 def refresh_all_student_records():
     for student in Student.query.all():
+        ensure_class_attendance(student)
         sync_student_records(student)
 
 
@@ -1222,6 +1363,7 @@ def delete_student(student_id):
     db.session.query(Mark).filter_by(student_id=student.id).delete(synchronize_session=False)
     db.session.query(Prediction).filter_by(student_id=student.id).delete(synchronize_session=False)
     db.session.query(Attendance).filter_by(student_id=student.id).delete(synchronize_session=False)
+    db.session.query(ClassAttendance).filter_by(student_id=student.id).delete(synchronize_session=False)
     db.session.delete(student)
     db.session.commit()
     train_ml_model()
@@ -1260,6 +1402,47 @@ def update_my_marks():
     sync_student_records(student)
     db.session.commit()
     return jsonify({"success": True, "student": serialize_student(student, detail=True)})
+
+
+@app.route("/api/attendance")
+@login_required
+def attendance_portal():
+    students = scoped_students().all()
+    payload = attendance_portal_payload(students)
+    db.session.commit()
+    return jsonify(payload)
+
+
+@app.route("/api/attendance/<int:student_id>/<subject_key>", methods=["PUT"])
+@roles_required("admin", "teacher")
+def update_class_attendance(student_id, subject_key):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify({"success": False, "message": "Student not found"}), 404
+    if subject_key not in SUBJECT_FIELDS:
+        return jsonify({"success": False, "message": "Unknown subject"}), 400
+
+    data = request_payload()
+    total_classes = int(clamp(get_number(data, "total_classes", 0), 0, 500))
+    attended_classes = int(clamp(get_number(data, "attended_classes", 0), 0, total_classes))
+    if total_classes <= 0:
+        return jsonify({"success": False, "message": "Total classes must be greater than zero"}), 400
+
+    ensure_class_attendance(student)
+    record = ClassAttendance.query.filter_by(student_id=student.id, subject_key=subject_key).first()
+    if not record:
+        record = ClassAttendance(student_id=student.id, subject_key=subject_key, subject=SUBJECT_LABELS[subject_key])
+        db.session.add(record)
+    record.subject = SUBJECT_LABELS[subject_key]
+    record.attended_classes = attended_classes
+    record.total_classes = total_classes
+    record.updated_at = datetime.utcnow()
+    recalculate_student_attendance(student)
+    student.updated_at = datetime.utcnow()
+    train_ml_model()
+    sync_student_records(student)
+    db.session.commit()
+    return jsonify({"success": True, "student": serialize_student(student, detail=True), "attendance": attendance_portal_payload([student])})
 
 
 @app.route("/api/users")
@@ -1428,6 +1611,7 @@ def analytics_overview():
             "radar": subject_averages_payload(students),
             "heatmap": heatmap_payload(students),
             "toppers": topper_payload(students),
+            "attendance_portal": attendance_portal_payload(students),
             "insights": insights_payload(students),
             "recent_activity": recent_activity_payload(students),
         }

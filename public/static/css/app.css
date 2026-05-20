@@ -1401,6 +1401,76 @@ tbody tr:hover {
     gap: 18px;
 }
 
+.smart-attendance-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+    gap: 18px;
+    margin: 18px 0;
+}
+
+.compact-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.compact-form button {
+    align-self: end;
+}
+
+.smart-session-list {
+    display: grid;
+    gap: 12px;
+}
+
+.smart-session-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.qr-token {
+    display: inline-grid;
+    place-items: center;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius);
+    color: var(--cyan);
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.weekly-bars {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    align-items: end;
+    min-height: 92px;
+}
+
+.weekly-bar {
+    display: grid;
+    align-items: end;
+    gap: 5px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.weekly-bar span {
+    display: block;
+    min-height: 12px;
+    border-radius: 999px 999px 4px 4px;
+    background: linear-gradient(180deg, var(--cyan), var(--green));
+}
+
 .attendance-list,
 .attendance-class-grid {
     display: grid;
@@ -1513,6 +1583,82 @@ tbody tr:hover {
     color: var(--text);
 }
 
+.ai-assistant-widget {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 240;
+}
+
+.assistant-toggle {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    aspect-ratio: 1;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--cyan), var(--green));
+    color: #03111f;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+}
+
+.assistant-panel {
+    position: absolute;
+    right: 0;
+    bottom: 72px;
+    display: none;
+    width: min(390px, calc(100vw - 36px));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.96);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.assistant-panel.open {
+    display: block;
+}
+
+.assistant-panel header,
+.assistant-panel form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid rgba(129, 230, 217, 0.12);
+}
+
+.assistant-panel form {
+    border-top: 1px solid rgba(129, 230, 217, 0.12);
+    border-bottom: 0;
+}
+
+.assistant-panel input {
+    min-width: 0;
+}
+
+.assistant-messages {
+    display: grid;
+    gap: 10px;
+    max-height: 300px;
+    overflow: auto;
+    padding: 12px;
+}
+
+.assistant-message {
+    padding: 10px 12px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(15, 23, 42, 0.82);
+}
+
+.assistant-message.user {
+    border-color: rgba(34, 211, 238, 0.34);
+    background: rgba(34, 211, 238, 0.12);
+}
+
 .pop-icon {
     position: fixed;
     z-index: 260;
@@ -1622,6 +1768,7 @@ tbody tr:hover {
     .detail-grid,
     .preview-band,
     .attendance-hero,
+    .smart-attendance-grid,
     .attendance-layout,
     .parent-portal-hero,
     .parent-ward-grid,
@@ -1701,6 +1848,7 @@ tbody tr:hover {
     .subject-grid,
     .mini-stat-grid,
     .attendance-summary,
+    .compact-form,
     .attendance-profile-strip,
     .attendance-class-grid,
     .attendance-edit-form,

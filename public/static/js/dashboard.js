@@ -81,6 +81,16 @@
         attendanceDetailTitle: document.getElementById("attendanceDetailTitle"),
         attendanceDetailStatus: document.getElementById("attendanceDetailStatus"),
         attendanceDetail: document.getElementById("attendanceDetail"),
+        smartSessionForm: document.getElementById("smartSessionForm"),
+        teacherNoteForm: document.getElementById("teacherNoteForm"),
+        smartSessionCount: document.getElementById("smartSessionCount"),
+        smartSessionList: document.getElementById("smartSessionList"),
+        assistantToggle: document.getElementById("assistantToggle"),
+        assistantClose: document.getElementById("assistantClose"),
+        assistantPanel: document.getElementById("assistantPanel"),
+        assistantForm: document.getElementById("assistantForm"),
+        assistantInput: document.getElementById("assistantInput"),
+        assistantMessages: document.getElementById("assistantMessages"),
         parentLookupForm: document.getElementById("parentStudentLookupForm"),
         parentLookupInput: document.getElementById("parentStudentLookupInput"),
         parentLookupResults: document.getElementById("parentLookupResults"),
@@ -471,6 +481,68 @@
         return dashboardData?.attendance_portal || { summary: {}, students: [] };
     }
 
+    function smartAttendanceData() {
+        return dashboardData?.smart_attendance || { sessions: [], notes: [] };
+    }
+
+    function renderSmartAttendance(data = smartAttendanceData()) {
+        if (!elements.smartSessionList) return;
+        const sessions = data.sessions || [];
+        const notes = data.notes || [];
+        if (elements.smartSessionCount) elements.smartSessionCount.textContent = `${sessions.length} sessions`;
+        if (!sessions.length && !notes.length) {
+            elements.smartSessionList.innerHTML = `<p class="lead">No smart attendance sessions or notes yet.</p>`;
+            return;
+        }
+        const sessionHtml = sessions.map((session) => {
+            const submissions = session.submissions || [];
+            const latest = submissions.slice(0, 4).map((item) => `
+                <p class="message">${escapeHtml(item.student_name)}: ${escapeHtml(item.status)} | ${escapeHtml(item.risk_flags)}</p>
+            `).join("");
+            return `
+                <article class="smart-session-card">
+                    <div class="attendance-class-head">
+                        <div>
+                            <strong>${escapeHtml(session.subject)} | Class ${escapeHtml(session.class_name)}-${escapeHtml(session.section)}</strong>
+                            <span class="muted">Late after ${escapeHtml(session.late_after_minutes)} min | Radius ${escapeHtml(session.radius_meters)}m</span>
+                        </div>
+                        <span class="pill ${session.active ? "success" : "warning"}">${session.active ? "Active" : "Closed"}</span>
+                    </div>
+                    <div class="qr-token">${escapeHtml(session.qr_token)}</div>
+                    <p class="message">QR expires in ${escapeHtml(session.qr_expires_in)}s. Face + device + geofence checks are enabled.</p>
+                    ${isStudent ? `
+                        <form class="attendance-edit-form smart-submit-form" data-session="${session.id}">
+                            <label>QR Token <input name="qr_token" value="${escapeHtml(session.qr_token)}"></label>
+                            <label>Device ID <input name="device_id" value="${escapeHtml(navigator.userAgent.slice(0, 28))}"></label>
+                            <label>Face <select name="face_verified"><option value="true">Verified</option><option value="">Manual review</option></select></label>
+                            <input type="hidden" name="selfie_verified" value="true">
+                            <button class="btn secondary" type="submit">Mark Present</button>
+                        </form>
+                    ` : ""}
+                    ${canManageStudents ? `
+                        <form class="attendance-edit-form smart-manual-form" data-session="${session.id}">
+                            <label>Roll <input name="roll_number" placeholder="STU001"></label>
+                            <label>Status <select name="status"><option>Present</option><option>Late</option><option>Absent</option><option>Medical leave</option></select></label>
+                            <button class="btn secondary" type="submit">Manual Backup</button>
+                        </form>
+                    ` : ""}
+                    ${latest}
+                </article>
+            `;
+        }).join("");
+        const noteHtml = notes.map((note) => `
+            <article class="smart-session-card">
+                <span class="pill">Notes/PDF</span>
+                <strong>${escapeHtml(note.title)}</strong>
+                <p class="message">${escapeHtml(note.subject)} | Class ${escapeHtml(note.class_name)}-${escapeHtml(note.section)} | ${escapeHtml(note.file_name)}</p>
+                <p class="lead">${escapeHtml(note.description)}</p>
+            </article>
+        `).join("");
+        elements.smartSessionList.innerHTML = sessionHtml + noteHtml;
+        elements.smartSessionList.querySelectorAll(".smart-submit-form").forEach((form) => form.addEventListener("submit", submitSmartAttendance));
+        elements.smartSessionList.querySelectorAll(".smart-manual-form").forEach((form) => form.addEventListener("submit", submitManualAttendance));
+    }
+
     function renderAttendancePortal(portal) {
         if (!elements.attendanceStudentList) return;
         const students = portal.students || [];
@@ -582,6 +654,16 @@
                 <div><span class="metric-label">Total</span><strong>${escapeHtml(item.total_classes)}</strong></div>
                 <div><span class="metric-label">Low Subjects</span><strong>${escapeHtml(item.low_subject_count)}</strong></div>
             </div>
+            <div class="attendance-profile-strip">
+                <div><span class="metric-label">Need For 75%</span><strong>${escapeHtml(item.classes_needed_for_75)}</strong></div>
+                <div><span class="metric-label">Can Miss</span><strong>${escapeHtml(item.classes_can_miss)}</strong></div>
+                <div><span class="metric-label">Predicted</span><strong>${escapeHtml(item.predicted_semester_attendance)}%</strong></div>
+                <div><span class="metric-label">Streak</span><strong>${escapeHtml((item.streaks || [])[0] || "-")}</strong></div>
+            </div>
+            <div class="weekly-bars">
+                ${(item.weekly_graph || []).map((point) => `<div class="weekly-bar"><span style="height:${Math.max(8, Number(point.value || 0))}%"></span>${escapeHtml(point.label)}</div>`).join("")}
+            </div>
+            <div class="tag-cloud">${(item.ai_suggestions || []).map((suggestion) => `<span class="pill warning">${escapeHtml(suggestion)}</span>`).join("")}</div>
             ${item.lowest_subject ? `<p class="lead">Lowest attendance: ${escapeHtml(item.lowest_subject.subject)} at ${escapeHtml(item.lowest_subject.percentage)}%.</p>` : ""}
             <div class="attendance-class-grid">${classRows}</div>
         `;
@@ -756,6 +838,125 @@
             window.showToast(error.message);
         } finally {
             showLoading(false);
+        }
+    }
+
+    async function createSmartSession(event) {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+        ["radius_meters", "latitude", "longitude"].forEach((field) => {
+            if (payload[field] !== "") payload[field] = Number(payload[field]);
+        });
+        try {
+            showLoading(true);
+            await fetchJson("/api/smart-attendance/sessions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            await loadDashboard();
+            switchView("attendance");
+            window.showToast("Smart attendance session generated");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function submitSmartAttendance(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const payload = Object.fromEntries(new FormData(form).entries());
+        payload.face_verified = payload.face_verified === "true";
+        payload.selfie_verified = true;
+        try {
+            if (navigator.geolocation) {
+                const position = await new Promise((resolve) => navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 2500 }));
+                if (position) {
+                    payload.latitude = position.coords.latitude;
+                    payload.longitude = position.coords.longitude;
+                }
+            }
+            showLoading(true);
+            const data = await fetchJson(`/api/smart-attendance/sessions/${form.dataset.session}/submit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            await loadDashboard();
+            window.showToast(`Attendance ${data.submission.status}: ${data.submission.risk_flags}`);
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function submitManualAttendance(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const payload = Object.fromEntries(new FormData(form).entries());
+        try {
+            showLoading(true);
+            await fetchJson(`/api/smart-attendance/sessions/${form.dataset.session}/manual`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            await loadDashboard();
+            switchView("attendance");
+            window.showToast("Manual attendance saved");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function createTeacherNote(event) {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+        try {
+            showLoading(true);
+            await fetchJson("/api/teacher/notes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            await loadDashboard();
+            window.showToast("Notes added");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function addAssistantMessage(text, type = "bot") {
+        if (!elements.assistantMessages) return;
+        const node = document.createElement("div");
+        node.className = `assistant-message ${type}`;
+        node.textContent = text;
+        elements.assistantMessages.appendChild(node);
+        elements.assistantMessages.scrollTop = elements.assistantMessages.scrollHeight;
+    }
+
+    async function askAssistant(event) {
+        event.preventDefault();
+        const message = elements.assistantInput?.value.trim();
+        if (!message) return;
+        elements.assistantInput.value = "";
+        addAssistantMessage(message, "user");
+        try {
+            const data = await fetchJson("/api/assistant", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message, student_id: selectedStudent?.id }),
+            });
+            addAssistantMessage(data.reply || "I could not generate a reply.");
+        } catch (error) {
+            addAssistantMessage(error.message);
         }
     }
 
@@ -983,6 +1184,7 @@
             renderRecentActivity(dashboardData.recent_activity);
             renderToppers(dashboardData.toppers);
             renderAttendancePortal(dashboardData.attendance_portal);
+            renderSmartAttendance(dashboardData.smart_attendance);
             renderParentMessages(dashboardData.parent_messages || []);
             renderParentPortal();
             if (dashboardData.students.length && !selectedStudent) {
@@ -1010,6 +1212,11 @@
     document.getElementById("openSidebar")?.addEventListener("click", () => elements.sidebar.classList.add("open"));
     document.getElementById("closeSidebar")?.addEventListener("click", () => elements.sidebar.classList.remove("open"));
     document.getElementById("resetStudentForm")?.addEventListener("click", resetStudentForm);
+    elements.smartSessionForm?.addEventListener("submit", createSmartSession);
+    elements.teacherNoteForm?.addEventListener("submit", createTeacherNote);
+    elements.assistantToggle?.addEventListener("click", () => elements.assistantPanel?.classList.toggle("open"));
+    elements.assistantClose?.addEventListener("click", () => elements.assistantPanel?.classList.remove("open"));
+    elements.assistantForm?.addEventListener("submit", askAssistant);
 
     elements.searchInput?.addEventListener("input", (event) => {
         clearTimeout(searchTimer);

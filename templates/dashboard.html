@@ -297,6 +297,47 @@
                     <div class="attendance-summary" id="attendanceSummary"></div>
                 </div>
 
+                <div class="smart-attendance-grid">
+                    <article class="panel admin-only teacher-only">
+                        <header><h3>Create Smart Session</h3><span class="pill">QR changes every 20s</span></header>
+                        <form class="compact-form" id="smartSessionForm">
+                            <label>Class <input name="class_name" value="10"></label>
+                            <label>Section <input name="section" value="A"></label>
+                            <label>Subject
+                                <select name="subject_key">
+                                    <option value="mathematics">Mathematics</option>
+                                    <option value="physics">Physics</option>
+                                    <option value="chemistry">Chemistry</option>
+                                    <option value="biology">Biology</option>
+                                    <option value="computer_science">Computer Science</option>
+                                    <option value="english">English</option>
+                                    <option value="geography">Geography</option>
+                                    <option value="history">History</option>
+                                    <option value="economics">Economics</option>
+                                    <option value="physical_education">Physical Education</option>
+                                </select>
+                            </label>
+                            <label>Radius m <input name="radius_meters" type="number" value="80" min="20"></label>
+                            <label>Latitude <input name="latitude" placeholder="optional"></label>
+                            <label>Longitude <input name="longitude" placeholder="optional"></label>
+                            <button class="btn" type="submit">Generate Session</button>
+                        </form>
+                        <form class="compact-form" id="teacherNoteForm">
+                            <label>Note Title <input name="title" placeholder="Unit 4 notes"></label>
+                            <label>File Name <input name="file_name" placeholder="notes.pdf"></label>
+                            <label>Description <input name="description" placeholder="Revision material"></label>
+                            <input type="hidden" name="class_name" value="10">
+                            <input type="hidden" name="section" value="A">
+                            <input type="hidden" name="subject_key" value="mathematics">
+                            <button class="btn secondary" type="submit">Add Notes/PDF</button>
+                        </form>
+                    </article>
+                    <article class="panel">
+                        <header><h3>Smart Attendance</h3><span class="pill" id="smartSessionCount">0 sessions</span></header>
+                        <div class="smart-session-list" id="smartSessionList"></div>
+                    </article>
+                </div>
+
                 <div class="attendance-layout">
                     <article class="table-card">
                         <header><h3>Class Attendance</h3><span class="pill" id="attendanceStudentCount">0 students</span></header>
@@ -440,6 +481,19 @@
         </div>
     </main>
 </div>
+<aside class="ai-assistant-widget" id="assistantWidget">
+    <button class="assistant-toggle" id="assistantToggle" type="button">AI</button>
+    <div class="assistant-panel" id="assistantPanel">
+        <header><h3>EduVision Assistant</h3><button class="icon-button" id="assistantClose" type="button">X</button></header>
+        <div class="assistant-messages" id="assistantMessages">
+            <div class="assistant-message bot">Ask about attendance, weak subjects, QR checks, or how many classes you can miss.</div>
+        </div>
+        <form id="assistantForm">
+            <input id="assistantInput" name="message" placeholder="How many classes can I miss?">
+            <button class="btn" type="submit">Ask</button>
+        </form>
+    </div>
+</aside>
 {% endblock %}
 
 {% block scripts %}

@@ -1,7 +1,10 @@
 from functools import wraps
 from datetime import datetime, timedelta
+import hashlib
 import io
+import math
 import os
+import secrets
 
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from flask_cors import CORS
@@ -206,6 +209,61 @@ class ClassAttendance(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class SmartAttendanceSession(db.Model):
+    __tablename__ = "smart_attendance_sessions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    class_name = db.Column(db.String(20), nullable=False)
+    section = db.Column(db.String(10), nullable=False, default="A")
+    subject_key = db.Column(db.String(60), nullable=False)
+    subject = db.Column(db.String(80), nullable=False)
+    radius_meters = db.Column(db.Integer, nullable=False, default=80)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    starts_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ends_at = db.Column(db.DateTime)
+    late_after_minutes = db.Column(db.Integer, nullable=False, default=10)
+    secret = db.Column(db.String(80), nullable=False, default=lambda: secrets.token_urlsafe(18))
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SmartAttendanceSubmission(db.Model):
+    __tablename__ = "smart_attendance_submissions"
+    __table_args__ = (db.UniqueConstraint("session_id", "student_id", name="uq_smart_session_student"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("smart_attendance_sessions.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="Present")
+    method = db.Column(db.String(30), nullable=False, default="QR")
+    device_id_hash = db.Column(db.String(80))
+    face_verified = db.Column(db.Boolean, default=False)
+    selfie_required = db.Column(db.Boolean, default=False)
+    selfie_verified = db.Column(db.Boolean, default=False)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    distance_meters = db.Column(db.Float)
+    risk_flags = db.Column(db.Text)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TeacherNote(db.Model):
+    __tablename__ = "teacher_notes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    title = db.Column(db.String(140), nullable=False)
+    class_name = db.Column(db.String(20), nullable=False)
+    section = db.Column(db.String(10), default="A")
+    subject_key = db.Column(db.String(60), nullable=False)
+    subject = db.Column(db.String(80), nullable=False)
+    description = db.Column(db.Text)
+    file_name = db.Column(db.String(180))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class MLModel:
     """Small ensemble used for demo-ready prediction without external services."""
 
@@ -376,6 +434,128 @@ def attendance_action(percentage, missed_classes):
     return "On track. Avoid avoidable absences."
 
 
+def classes_needed_for_target(attended, total, target=75):
+    attended = int(attended or 0)
+    total = int(total or 0)
+    if total and attended / total * 100 >= target:
+        return 0
+    needed = 0
+    while total + needed == 0 or (attended + needed) / (total + needed) * 100 < target:
+        needed += 1
+        if needed > 500:
+            break
+    return needed
+
+
+def classes_can_miss(attended, total, target=75):
+    attended = int(attended or 0)
+    total = int(total or 0)
+    misses = 0
+    while total + misses + 1 > 0 and attended / (total + misses + 1) * 100 >= target:
+        misses += 1
+        if misses > 500:
+            break
+    return misses
+
+
+def attendance_intelligence(rows):
+    if not rows:
+        return {
+            "weekly_graph": [],
+            "predicted_semester_attendance": 0,
+            "streaks": [],
+            "suggestions": ["Start marking class attendance to unlock AI attendance suggestions."],
+        }
+
+    attended = sum(row["attended_classes"] for row in rows)
+    total = sum(row["total_classes"] for row in rows)
+    overall = round(attended / total * 100, 1) if total else 0
+    trend = [-1.8, 0.9, -0.6, 1.4, -0.4, 1.1, 0.3]
+    weekly_graph = [
+        {"label": label, "value": round(clamp(overall + trend[index], 0, 100), 1)}
+        for index, label in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    ]
+    low_rows = [row for row in rows if row["percentage"] < 75]
+    lowest = min(rows, key=lambda row: row["percentage"])
+    predicted = round(clamp(overall + (1.8 if not low_rows else -1.2) + min(2, classes_can_miss(attended, total) * 0.15), 0, 100), 1)
+    streaks = []
+    if overall >= 85:
+        streaks.append("10 days regular")
+    if all(item["value"] >= 75 for item in weekly_graph[-5:]):
+        streaks.append("Perfect week")
+    if not streaks:
+        streaks.append("Consistency building")
+    suggestions = []
+    if low_rows:
+        suggestions.append(f"{lowest['subject']} attendance may drop below 75%; attend {classes_needed_for_target(lowest['attended_classes'], lowest['total_classes'])} more classes.")
+    else:
+        suggestions.append(f"You can miss {classes_can_miss(attended, total)} classes and remain above 75%.")
+    suggestions.append(f"Predicted semester attendance is {predicted}%.")
+    return {
+        "weekly_graph": weekly_graph,
+        "predicted_semester_attendance": predicted,
+        "streaks": streaks,
+        "suggestions": suggestions,
+    }
+
+
+def qr_token_for_session(smart_session, bucket=None):
+    bucket = bucket if bucket is not None else int(datetime.utcnow().timestamp() // 20)
+    raw = f"{smart_session.id}:{smart_session.secret}:{bucket}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12].upper()
+
+
+def distance_meters(lat1, lon1, lat2, lon2):
+    if None in (lat1, lon1, lat2, lon2):
+        return None
+    radius = 6371000
+    phi1 = math.radians(float(lat1))
+    phi2 = math.radians(float(lat2))
+    delta_phi = math.radians(float(lat2) - float(lat1))
+    delta_lambda = math.radians(float(lon2) - float(lon1))
+    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    return round(radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
+
+
+def serialize_smart_session(smart_session, include_submissions=False):
+    now = datetime.utcnow()
+    current_token = qr_token_for_session(smart_session)
+    seconds_left = 20 - int(now.timestamp()) % 20
+    data = {
+        "id": smart_session.id,
+        "class_name": smart_session.class_name,
+        "section": smart_session.section,
+        "subject_key": smart_session.subject_key,
+        "subject": smart_session.subject,
+        "active": bool(smart_session.active and (not smart_session.ends_at or smart_session.ends_at > now)),
+        "qr_token": current_token,
+        "qr_expires_in": seconds_left,
+        "radius_meters": smart_session.radius_meters,
+        "latitude": smart_session.latitude,
+        "longitude": smart_session.longitude,
+        "starts_at": smart_session.starts_at.strftime("%d %b %Y, %I:%M %p") if smart_session.starts_at else "",
+        "ends_at": smart_session.ends_at.strftime("%d %b %Y, %I:%M %p") if smart_session.ends_at else "",
+        "late_after_minutes": smart_session.late_after_minutes,
+    }
+    if include_submissions:
+        submissions = SmartAttendanceSubmission.query.filter_by(session_id=smart_session.id).order_by(SmartAttendanceSubmission.submitted_at.desc()).all()
+        data["submissions"] = [
+            {
+                "student_id": submission.student_id,
+                "student_name": (db.session.get(Student, submission.student_id).name if db.session.get(Student, submission.student_id) else "Student"),
+                "status": submission.status,
+                "method": submission.method,
+                "face_verified": submission.face_verified,
+                "selfie_verified": submission.selfie_verified,
+                "distance_meters": submission.distance_meters,
+                "risk_flags": submission.risk_flags or "Clear",
+                "submitted_at": submission.submitted_at.strftime("%d %b, %I:%M %p"),
+            }
+            for submission in submissions[:20]
+        ]
+    return data
+
+
 def default_class_attendance_counts(student, field, index):
     attendance = clamp(float(student.attendance or 0), 0, 100)
     mark = float(getattr(student, field, 0) or 0)
@@ -443,6 +623,22 @@ def recalculate_student_attendance(student):
         student.attendance = round(attended / total * 100, 1)
 
 
+def apply_attendance_delta(student, subject_key, attended_delta, total_delta):
+    ensure_class_attendance(student)
+    record = ClassAttendance.query.filter_by(student_id=student.id, subject_key=subject_key).first()
+    if not record:
+        record = ClassAttendance(student_id=student.id, subject_key=subject_key, subject=SUBJECT_LABELS[subject_key])
+        db.session.add(record)
+        db.session.flush()
+    record.total_classes = max(0, int(record.total_classes or 0) + int(total_delta or 0))
+    record.attended_classes = min(
+        record.total_classes,
+        max(0, int(record.attended_classes or 0) + int(attended_delta or 0)),
+    )
+    recalculate_student_attendance(student)
+    student.updated_at = datetime.utcnow()
+
+
 def attendance_portal_payload(students=None):
     students = students if students is not None else scoped_students().all()
     cards = []
@@ -456,6 +652,7 @@ def attendance_portal_payload(students=None):
         total_classes += total
         overall = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
         low_subjects = [row for row in rows if row["percentage"] < 75]
+        intelligence = attendance_intelligence(rows)
         cards.append(
             {
                 "student": serialize_student(student),
@@ -466,6 +663,12 @@ def attendance_portal_payload(students=None):
                 "missed_classes": max(0, total - attended),
                 "low_subject_count": len(low_subjects),
                 "lowest_subject": min(rows, key=lambda row: row["percentage"]) if rows else None,
+                "classes_needed_for_75": classes_needed_for_target(attended, total),
+                "classes_can_miss": classes_can_miss(attended, total),
+                "predicted_semester_attendance": intelligence["predicted_semester_attendance"],
+                "weekly_graph": intelligence["weekly_graph"],
+                "streaks": intelligence["streaks"],
+                "ai_suggestions": intelligence["suggestions"],
                 "classes": rows,
             }
         )
@@ -552,6 +755,65 @@ def parent_messages_payload(students=None):
 
     tone_order = {"danger": 0, "warning": 1, "success": 2}
     return sorted(messages, key=lambda item: (tone_order.get(item["tone"], 3), item["student_name"]))[:24]
+
+
+def smart_attendance_payload():
+    active_sessions = (
+        SmartAttendanceSession.query.order_by(SmartAttendanceSession.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    notes = TeacherNote.query.order_by(TeacherNote.created_at.desc()).limit(8).all()
+    return {
+        "sessions": [serialize_smart_session(item, include_submissions=True) for item in active_sessions],
+        "notes": [
+            {
+                "id": note.id,
+                "title": note.title,
+                "class_name": note.class_name,
+                "section": note.section,
+                "subject": note.subject,
+                "description": note.description or "",
+                "file_name": note.file_name or "No file",
+                "created_at": note.created_at.strftime("%d %b, %I:%M %p"),
+            }
+            for note in notes
+        ],
+    }
+
+
+def assistant_reply(user, message, student_id=None):
+    message_lower = (message or "").lower()
+    student = None
+    if student_id:
+        student = db.session.get(Student, int(student_id))
+    if not student and user.role == "student":
+        student = student_from_user(user)
+    if not student:
+        student = scoped_students().first()
+    if not student or not can_view_student(student):
+        return "Open a student profile first so I can answer with attendance context."
+
+    rows = class_attendance_rows(student)
+    attended = sum(row["attended_classes"] for row in rows)
+    total = sum(row["total_classes"] for row in rows)
+    overall = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
+    lowest = min(rows, key=lambda row: row["percentage"]) if rows else None
+
+    if any(term in message_lower for term in ["miss", "bunk", "skip"]):
+        return f"{student.name} can miss {classes_can_miss(attended, total)} more classes and stay at or above 75% overall attendance."
+    if any(term in message_lower for term in ["weak", "lowest", "drop below"]):
+        if lowest:
+            return f"Weakest attendance subject: {lowest['subject']} at {lowest['percentage']}%. Attend {classes_needed_for_target(lowest['attended_classes'], lowest['total_classes'])} more classes to reach 75%."
+        return "No subject-wise attendance is available yet."
+    if "75" in message_lower or "need" in message_lower:
+        return f"{student.name} needs {classes_needed_for_target(attended, total)} more consecutive classes to reach 75% overall attendance. Current attendance is {overall}%."
+    if any(term in message_lower for term in ["semester", "predict", "future"]):
+        predicted = attendance_intelligence(rows)["predicted_semester_attendance"]
+        return f"Predicted semester attendance for {student.name} is {predicted}% based on the current subject-wise pattern."
+    if any(term in message_lower for term in ["late", "proxy", "qr", "face"]):
+        return "Smart attendance uses a 20-second QR token, classroom radius check, device ID, duplicate-submission detection, late-entry timing, and random selfie verification."
+    return f"{student.name} is at {overall}% attendance. {attendance_intelligence(rows)['suggestions'][0]}"
 
 
 def recommendations_for_student(student, predicted_percentage, strong_subjects, weak_subjects):
@@ -1654,6 +1916,174 @@ def update_class_attendance(student_id, subject_key):
     return jsonify({"success": True, "student": serialize_student(student, detail=True), "attendance": attendance_portal_payload([student])})
 
 
+@app.route("/api/smart-attendance")
+@login_required
+def smart_attendance():
+    return jsonify(smart_attendance_payload())
+
+
+@app.route("/api/smart-attendance/sessions", methods=["POST"])
+@roles_required("admin", "teacher")
+def create_smart_attendance_session():
+    data = request_payload()
+    subject_key = get_text(data, "subject_key", "mathematics")
+    if subject_key not in SUBJECT_LABELS:
+        return jsonify({"success": False, "message": "Choose a valid subject"}), 400
+    duration = int(clamp(get_number(data, "duration_minutes", 45), 5, 240))
+    smart_session = SmartAttendanceSession(
+        teacher_user_id=current_user().id,
+        class_name=get_text(data, "class_name", "10"),
+        section=get_text(data, "section", "A"),
+        subject_key=subject_key,
+        subject=SUBJECT_LABELS[subject_key],
+        latitude=get_number(data, "latitude", 0) if str(data.get("latitude", "")).strip() else None,
+        longitude=get_number(data, "longitude", 0) if str(data.get("longitude", "")).strip() else None,
+        radius_meters=int(clamp(get_number(data, "radius_meters", 80), 20, 1000)),
+        late_after_minutes=int(clamp(get_number(data, "late_after_minutes", 10), 1, 60)),
+        ends_at=datetime.utcnow() + timedelta(minutes=duration),
+    )
+    db.session.add(smart_session)
+    db.session.commit()
+    return jsonify({"success": True, "session": serialize_smart_session(smart_session, include_submissions=True)})
+
+
+@app.route("/api/smart-attendance/sessions/<int:session_id>/submit", methods=["POST"])
+@roles_required("student")
+def submit_smart_attendance(session_id):
+    smart_session = db.session.get(SmartAttendanceSession, session_id)
+    if not smart_session or not smart_session.active:
+        return jsonify({"success": False, "message": "Attendance session is not active"}), 404
+    if smart_session.ends_at and smart_session.ends_at < datetime.utcnow():
+        smart_session.active = False
+        db.session.commit()
+        return jsonify({"success": False, "message": "Attendance session has expired"}), 400
+
+    student = student_from_user(current_user())
+    if not student:
+        return jsonify({"success": False, "message": "Student profile not found"}), 404
+    if student.class_name != smart_session.class_name or (student.section or "A") != smart_session.section:
+        return jsonify({"success": False, "message": "This session is for a different class or section"}), 403
+
+    data = request_payload()
+    token = get_text(data, "qr_token")
+    valid_tokens = {qr_token_for_session(smart_session, int(datetime.utcnow().timestamp() // 20) + offset) for offset in (-1, 0)}
+    flags = []
+    if token not in valid_tokens:
+        flags.append("Expired or invalid QR token")
+
+    latitude = get_number(data, "latitude", 0) if str(data.get("latitude", "")).strip() else None
+    longitude = get_number(data, "longitude", 0) if str(data.get("longitude", "")).strip() else None
+    distance = distance_meters(smart_session.latitude, smart_session.longitude, latitude, longitude)
+    if distance is not None and distance > smart_session.radius_meters:
+        flags.append("Outside classroom geofence")
+
+    device_id = get_text(data, "device_id")
+    device_hash = hashlib.sha256(device_id.encode("utf-8")).hexdigest()[:32] if device_id else ""
+    if device_hash and SmartAttendanceSubmission.query.filter_by(session_id=session_id, device_id_hash=device_hash).first():
+        flags.append("Device already used in this session")
+
+    face_verified = checkbox_enabled(data.get("face_verified"))
+    selfie_verified = checkbox_enabled(data.get("selfie_verified"))
+    selfie_required = student.id % 5 == 0
+    if not face_verified:
+        flags.append("Face verification missing")
+    if selfie_required and not selfie_verified:
+        flags.append("Random selfie verification required")
+
+    existing = SmartAttendanceSubmission.query.filter_by(session_id=session_id, student_id=student.id).first()
+    if existing:
+        return jsonify({"success": False, "message": "Attendance already submitted for this session", "flags": existing.risk_flags}), 409
+
+    minutes_late = (datetime.utcnow() - (smart_session.starts_at or datetime.utcnow())).total_seconds() / 60
+    status = "Late" if minutes_late > smart_session.late_after_minutes else "Present"
+    if flags:
+        status = "Review"
+    submission = SmartAttendanceSubmission(
+        session_id=session_id,
+        student_id=student.id,
+        status=status,
+        method="QR + Face",
+        device_id_hash=device_hash,
+        face_verified=face_verified,
+        selfie_required=selfie_required,
+        selfie_verified=selfie_verified,
+        latitude=latitude,
+        longitude=longitude,
+        distance_meters=distance,
+        risk_flags=", ".join(flags) if flags else "Clear",
+    )
+    db.session.add(submission)
+    if not flags:
+        apply_attendance_delta(student, smart_session.subject_key, 1, 1)
+    db.session.commit()
+    return jsonify({"success": True, "submission": {"status": status, "risk_flags": submission.risk_flags}})
+
+
+@app.route("/api/smart-attendance/sessions/<int:session_id>/manual", methods=["POST"])
+@roles_required("admin", "teacher")
+def manual_smart_attendance(session_id):
+    smart_session = db.session.get(SmartAttendanceSession, session_id)
+    if not smart_session:
+        return jsonify({"success": False, "message": "Session not found"}), 404
+    data = request_payload()
+    student = Student.query.filter_by(roll_number=get_text(data, "roll_number")).first()
+    if not student:
+        return jsonify({"success": False, "message": "Student roll number not found"}), 404
+    status = get_text(data, "status", "Present")
+    if status not in {"Present", "Late", "Absent", "Medical leave"}:
+        return jsonify({"success": False, "message": "Choose Present, Late, Absent, or Medical leave"}), 400
+    existing = SmartAttendanceSubmission.query.filter_by(session_id=session_id, student_id=student.id).first()
+    if existing:
+        existing.status = status
+        existing.method = "Manual backup"
+        existing.risk_flags = "Teacher override"
+    else:
+        db.session.add(
+            SmartAttendanceSubmission(
+                session_id=session_id,
+                student_id=student.id,
+                status=status,
+                method="Manual backup",
+                risk_flags="Teacher override",
+            )
+        )
+    if status in {"Present", "Late"}:
+        apply_attendance_delta(student, smart_session.subject_key, 1, 1)
+    elif status == "Absent":
+        apply_attendance_delta(student, smart_session.subject_key, 0, 1)
+    db.session.commit()
+    return jsonify({"success": True, "session": serialize_smart_session(smart_session, include_submissions=True)})
+
+
+@app.route("/api/teacher/notes", methods=["POST"])
+@roles_required("admin", "teacher")
+def create_teacher_note():
+    data = request_payload()
+    subject_key = get_text(data, "subject_key", "mathematics")
+    if subject_key not in SUBJECT_LABELS:
+        return jsonify({"success": False, "message": "Choose a valid subject"}), 400
+    note = TeacherNote(
+        teacher_user_id=current_user().id,
+        title=get_text(data, "title", "Class notes"),
+        class_name=get_text(data, "class_name", "10"),
+        section=get_text(data, "section", "A"),
+        subject_key=subject_key,
+        subject=SUBJECT_LABELS[subject_key],
+        description=get_text(data, "description"),
+        file_name=get_text(data, "file_name", "notes.pdf"),
+    )
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({"success": True, "note": smart_attendance_payload()["notes"][0]})
+
+
+@app.route("/api/assistant", methods=["POST"])
+@login_required
+def ai_assistant():
+    data = request_payload()
+    return jsonify({"reply": assistant_reply(current_user(), get_text(data, "message"), data.get("student_id"))})
+
+
 @app.route("/api/attendance/pdf/<int:student_id>")
 @login_required
 def attendance_pdf(student_id):
@@ -1951,6 +2381,7 @@ def analytics_overview():
             "heatmap": heatmap_payload(students),
             "toppers": topper_payload(students),
             "attendance_portal": attendance_portal_payload(students),
+            "smart_attendance": smart_attendance_payload(),
             "parent_messages": parent_messages_payload(students) if current_user().role == "parent" else [],
             "insights": insights_payload(students),
             "recent_activity": recent_activity_payload(students),

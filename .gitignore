@@ -12,5 +12,8 @@ instance/*.sqlite3
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tools/
 .DS_Store
 Thumbs.db
+
+.vercel

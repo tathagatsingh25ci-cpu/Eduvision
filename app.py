@@ -949,6 +949,71 @@ def migrate_legacy_data():
             )
 
 
+def build_demo_students(total=100):
+    demo_students = [
+        ("STU001", "Ananya Rao", "10", "A", "Science", 96, 92, 94, [96, 91, 93, 88, 97, 90, 82, 78, 80, 94]),
+        ("STU002", "Kabir Shah", "10", "A", "Science", 88, 83, 86, [84, 82, 80, 79, 88, 76, 74, 72, 70, 86]),
+        ("STU003", "Meera Iyer", "10", "B", "Commerce", 91, 86, 88, [78, 70, 72, 66, 74, 90, 82, 84, 93, 87]),
+        ("STU004", "Rohan Das", "11", "A", "Science", 72, 64, 67, [64, 61, 58, 62, 70, 68, 54, 49, 52, 75]),
+        ("STU005", "Sara Khan", "11", "B", "Arts", 84, 78, 80, [68, 62, 64, 60, 66, 88, 91, 94, 78, 83]),
+        ("STU006", "Dev Patel", "12", "A", "Commerce", 63, 58, 61, [55, 50, 48, 45, 52, 64, 67, 70, 73, 71]),
+        ("STU007", "Isha Menon", "12", "B", "Science", 97, 94, 95, [98, 95, 96, 92, 99, 91, 88, 84, 86, 96]),
+        ("STU008", "Arjun Nair", "10", "C", "Arts", 69, 54, 57, [48, 44, 46, 42, 50, 72, 76, 80, 61, 66]),
+        ("STU009", "Nisha Verma", "11", "C", "Commerce", 78, 72, 75, [70, 64, 63, 59, 68, 82, 78, 76, 88, 79]),
+        ("STU010", "Vivaan Roy", "12", "A", "Science", 58, 49, 52, [44, 41, 38, 40, 46, 55, 49, 45, 42, 60]),
+        ("STU011", "Tara Sen", "11", "A", "Arts", 93, 89, 91, [82, 76, 78, 74, 80, 95, 96, 97, 84, 90]),
+        ("STU012", "Neil Kumar", "10", "B", "Commerce", 81, 75, 77, [72, 66, 64, 61, 70, 80, 79, 77, 85, 82]),
+    ]
+    first_names = [
+        "Aditi", "Advait", "Akshara", "Aman", "Amrita", "Anika", "Aryan", "Avni", "Bhavya", "Charu", "Dhruv",
+        "Diya", "Eshan", "Farah", "Gaurav", "Harini", "Ira", "Jai", "Jhanvi", "Karan", "Kiara", "Lakshya",
+        "Mahika", "Manav", "Navya", "Om", "Pari", "Pranav", "Rhea", "Ritvik", "Saanvi", "Sahil", "Samaira",
+        "Shaurya", "Siya", "Tanvi", "Tejas", "Trisha", "Utkarsh", "Vanya", "Ved", "Yash", "Zara", "Aarohi",
+    ]
+    last_names = [
+        "Agarwal", "Bansal", "Bhat", "Chopra", "Dixit", "Fernandes", "Ghosh", "Gupta", "Jain", "Joshi", "Kapoor",
+        "Kulkarni", "Malhotra", "Mishra", "Mukherjee", "Pillai", "Reddy", "Saxena", "Shetty", "Sinha", "Thomas",
+        "Varghese", "Yadav",
+    ]
+    profiles = {
+        "Science": [84, 82, 81, 79, 86, 76, 70, 68, 66, 80],
+        "Commerce": [72, 67, 66, 62, 70, 80, 76, 74, 84, 78],
+        "Arts": [64, 58, 60, 56, 62, 83, 86, 88, 76, 82],
+    }
+    classes = ["10", "11", "12"]
+    sections = ["A", "B", "C", "D"]
+    streams = ["Science", "Commerce", "Arts"]
+
+    for number in range(len(demo_students) + 1, total + 1):
+        stream = streams[(number - 1) % len(streams)]
+        class_name = classes[(number // 3) % len(classes)]
+        section = sections[(number - 1) % len(sections)]
+        profile = ((number * 7) % 41) - 20
+        attendance = clamp(76 + ((number * 9) % 23) - (8 if number % 11 == 0 else 0), 55, 98)
+        internal = clamp(70 + profile + ((number * 5) % 9) - 4, 38, 98)
+        semester = clamp(72 + profile + ((number * 3) % 11) - 5, 35, 99)
+        marks = [
+            int(clamp(base + profile + ((number * (index + 3)) % 13) - 6, 32, 99))
+            for index, base in enumerate(profiles[stream])
+        ]
+        first = first_names[(number - 13) % len(first_names)]
+        last = last_names[((number - 13) * 3) % len(last_names)]
+        demo_students.append(
+            (
+                f"STU{number:03d}",
+                f"{first} {last}",
+                class_name,
+                section,
+                stream,
+                int(attendance),
+                int(internal),
+                int(semester),
+                marks,
+            )
+        )
+    return demo_students
+
+
 def seed_demo_data():
     admin_user = ensure_user("admin", "admin123", "admin", "System Admin", "admin@eduvision.ai")
     ensure_user("teacher", "teacher123", "teacher", "Aarav Mehta", "teacher@eduvision.ai")
@@ -960,22 +1025,8 @@ def seed_demo_data():
     if not Teacher.query.filter_by(employee_id="TCH001").first():
         db.session.add(Teacher(name="Aarav Mehta", employee_id="TCH001", subject="Mathematics", email="teacher@eduvision.ai"))
 
-    if Student.query.count() == 0:
-        demo_students = [
-            ("STU001", "Ananya Rao", "10", "A", "Science", 96, 92, 94, [96, 91, 93, 88, 97, 90, 82, 78, 80, 94]),
-            ("STU002", "Kabir Shah", "10", "A", "Science", 88, 83, 86, [84, 82, 80, 79, 88, 76, 74, 72, 70, 86]),
-            ("STU003", "Meera Iyer", "10", "B", "Commerce", 91, 86, 88, [78, 70, 72, 66, 74, 90, 82, 84, 93, 87]),
-            ("STU004", "Rohan Das", "11", "A", "Science", 72, 64, 67, [64, 61, 58, 62, 70, 68, 54, 49, 52, 75]),
-            ("STU005", "Sara Khan", "11", "B", "Arts", 84, 78, 80, [68, 62, 64, 60, 66, 88, 91, 94, 78, 83]),
-            ("STU006", "Dev Patel", "12", "A", "Commerce", 63, 58, 61, [55, 50, 48, 45, 52, 64, 67, 70, 73, 71]),
-            ("STU007", "Isha Menon", "12", "B", "Science", 97, 94, 95, [98, 95, 96, 92, 99, 91, 88, 84, 86, 96]),
-            ("STU008", "Arjun Nair", "10", "C", "Arts", 69, 54, 57, [48, 44, 46, 42, 50, 72, 76, 80, 61, 66]),
-            ("STU009", "Nisha Verma", "11", "C", "Commerce", 78, 72, 75, [70, 64, 63, 59, 68, 82, 78, 76, 88, 79]),
-            ("STU010", "Vivaan Roy", "12", "A", "Science", 58, 49, 52, [44, 41, 38, 40, 46, 55, 49, 45, 42, 60]),
-            ("STU011", "Tara Sen", "11", "A", "Arts", 93, 89, 91, [82, 76, 78, 74, 80, 95, 96, 97, 84, 90]),
-            ("STU012", "Neil Kumar", "10", "B", "Commerce", 81, 75, 77, [72, 66, 64, 61, 70, 80, 79, 77, 85, 82]),
-        ]
-        for roll, name, class_name, section, stream, attendance, internal, semester, marks in demo_students:
+    for roll, name, class_name, section, stream, attendance, internal, semester, marks in build_demo_students(100):
+        if not Student.query.filter_by(roll_number=roll).first():
             student = Student(
                 roll_number=roll,
                 name=name,
@@ -988,7 +1039,7 @@ def seed_demo_data():
                 **dict(zip(SUBJECT_FIELDS, marks)),
             )
             db.session.add(student)
-            ensure_user(roll, "student123", "student", name)
+        ensure_user(roll, "student123", "student", name)
 
     link_parent_to_students(parent_user, ["STU001", "STU002"], "Parent")
 

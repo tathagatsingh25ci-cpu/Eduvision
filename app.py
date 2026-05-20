@@ -788,6 +788,47 @@ def smart_attendance_payload():
     }
 
 
+def student_subject_breakdown(student):
+    rows = [
+        {
+            "field": field,
+            "subject": label,
+            "marks": round(float(getattr(student, field, 0) or 0), 1),
+        }
+        for field, label in SUBJECT_LABELS.items()
+    ]
+    return sorted(rows, key=lambda item: item["marks"])
+
+
+def format_subject_list(rows, limit=3):
+    return ", ".join(f"{row['subject']} {row['marks']}%" for row in rows[:limit])
+
+
+def personalized_context(student):
+    rows = class_attendance_rows(student)
+    marks = student_subject_breakdown(student)
+    attended = sum(row["attended_classes"] for row in rows)
+    total = sum(row["total_classes"] for row in rows)
+    overall_attendance = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
+    percentage = calculate_percentage(student)
+    prediction = prediction_payload(student)
+    ranks = rank_map(scoped_students().all())
+    return {
+        "rows": rows,
+        "marks": marks,
+        "weak_marks": marks[:3],
+        "strong_marks": list(reversed(marks))[:3],
+        "lowest_attendance": min(rows, key=lambda row: row["percentage"]) if rows else None,
+        "attended": attended,
+        "total": total,
+        "attendance": overall_attendance,
+        "percentage": percentage,
+        "category": get_performance_category(percentage)[0],
+        "prediction": prediction,
+        "rank": ranks.get(student.id, 0),
+    }
+
+
 def assistant_reply(user, message, student_id=None):
     message_lower = (message or "").lower()
     student = None
@@ -800,26 +841,64 @@ def assistant_reply(user, message, student_id=None):
     if not student or not can_view_student(student):
         return "Open a student profile first so I can answer with attendance context."
 
-    rows = class_attendance_rows(student)
-    attended = sum(row["attended_classes"] for row in rows)
-    total = sum(row["total_classes"] for row in rows)
-    overall = round(attended / total * 100, 1) if total else round(float(student.attendance or 0), 1)
-    lowest = min(rows, key=lambda row: row["percentage"]) if rows else None
+    context = personalized_context(student)
+    lowest = context["lowest_attendance"]
+    name = student.name
+
+    if any(term in message_lower for term in ["marks", "score", "percentage", "result"]):
+        return (
+            f"{name}'s current marks average is {context['percentage']}% ({context['category']}). "
+            f"Strongest: {format_subject_list(context['strong_marks'])}. "
+            f"Needs work: {format_subject_list(context['weak_marks'])}. "
+            f"Predicted final result is {context['prediction']['predicted_percentage']}% with {context['prediction']['risk_level']}."
+        )
+
+    if any(term in message_lower for term in ["weak subject", "weakest", "low subject", "improve subject"]):
+        weakest_marks = context["weak_marks"][0]
+        attendance_text = ""
+        if lowest:
+            attendance_text = f" Attendance-wise, lowest is {lowest['subject']} at {lowest['percentage']}%."
+        return (
+            f"{name}'s weakest marks subject is {weakest_marks['subject']} at {weakest_marks['marks']}%. "
+            f"Focus first on {format_subject_list(context['weak_marks'])}.{attendance_text}"
+        )
+
+    if any(term in message_lower for term in ["strong", "best", "top subject"]):
+        return f"{name}'s strongest subjects are {format_subject_list(context['strong_marks'])}. Use these as confidence anchors while revising weaker chapters."
 
     if any(term in message_lower for term in ["miss", "bunk", "skip"]):
-        return f"{student.name} can miss {classes_can_miss(attended, total)} more classes and stay at or above 75% overall attendance."
-    if any(term in message_lower for term in ["weak", "lowest", "drop below"]):
+        return f"{name} can miss {classes_can_miss(context['attended'], context['total'])} more classes and stay at or above 75% overall attendance. Current attendance is {context['attendance']}%."
+    if any(term in message_lower for term in ["attendance", "present", "absent", "class"]):
         if lowest:
-            return f"Weakest attendance subject: {lowest['subject']} at {lowest['percentage']}%. Attend {classes_needed_for_target(lowest['attended_classes'], lowest['total_classes'])} more classes to reach 75%."
+            return (
+                f"{name}'s overall attendance is {context['attendance']}%. "
+                f"Lowest subject attendance: {lowest['subject']} at {lowest['percentage']}%. "
+                f"Need {classes_needed_for_target(lowest['attended_classes'], lowest['total_classes'])} more {lowest['subject']} classes to reach 75%."
+            )
         return "No subject-wise attendance is available yet."
+
     if "75" in message_lower or "need" in message_lower:
-        return f"{student.name} needs {classes_needed_for_target(attended, total)} more consecutive classes to reach 75% overall attendance. Current attendance is {overall}%."
+        return f"{name} needs {classes_needed_for_target(context['attended'], context['total'])} more consecutive classes to reach 75% overall attendance. Current attendance is {context['attendance']}%."
     if any(term in message_lower for term in ["semester", "predict", "future"]):
-        predicted = attendance_intelligence(rows)["predicted_semester_attendance"]
-        return f"Predicted semester attendance for {student.name} is {predicted}% based on the current subject-wise pattern."
+        predicted_attendance = attendance_intelligence(context["rows"])["predicted_semester_attendance"]
+        return f"{name}'s predicted final marks are {context['prediction']['predicted_percentage']}%, and predicted semester attendance is {predicted_attendance}%."
+    if any(term in message_lower for term in ["rank", "position", "class rank"]):
+        return f"{name} is currently rank #{context['rank']} in your visible student list, with {context['percentage']}% marks and {context['attendance']}% attendance."
+    if any(term in message_lower for term in ["recommend", "plan", "study", "suggest", "what should"]):
+        recommendations = context["prediction"]["recommendations"][:3]
+        return f"For {name}: " + " ".join(recommendations)
+    if any(term in message_lower for term in ["notes", "pdf", "material"]):
+        note = TeacherNote.query.filter_by(class_name=student.class_name, section=student.section or "A").order_by(TeacherNote.created_at.desc()).first()
+        if note:
+            return f"Latest notes for Class {note.class_name}-{note.section}: {note.title} in {note.subject}. Open it from the Smart Attendance Notes/PDF card."
+        return f"I do not see notes uploaded yet for Class {student.class_name}-{student.section or 'A'}."
     if any(term in message_lower for term in ["late", "proxy", "qr", "face"]):
         return "Smart attendance uses a 20-second QR token, classroom radius check, device ID, duplicate-submission detection, late-entry timing, and random selfie verification."
-    return f"{student.name} is at {overall}% attendance. {attendance_intelligence(rows)['suggestions'][0]}"
+    return (
+        f"For {name}: marks average {context['percentage']}%, attendance {context['attendance']}%, "
+        f"rank #{context['rank']}. Weakest marks subject is {context['weak_marks'][0]['subject']} "
+        f"({context['weak_marks'][0]['marks']}%). Ask me about marks, attendance, rank, notes, or a study plan."
+    )
 
 
 def recommendations_for_student(student, predicted_percentage, strong_subjects, weak_subjects):

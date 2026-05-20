@@ -1,4 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "flask"
+  "framework": "flask",
+  "rewrites": [
+    {
+      "source": "/dashboard.html",
+      "destination": "/dashboard"
+    },
+    {
+      "source": "/templates/(.*)",
+      "destination": "/dashboard"
+    }
+  ]
 }

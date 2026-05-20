@@ -1683,6 +1683,13 @@ def dashboard():
     return redirect(url_for(f"{user.role}_dashboard"))
 
 
+@app.route("/dashboard.html")
+@app.route("/templates/dashboard.html")
+@login_required
+def dashboard_file_redirect():
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/admin/dashboard")
 @roles_required("admin")
 def admin_dashboard():

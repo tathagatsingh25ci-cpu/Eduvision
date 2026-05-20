@@ -224,6 +224,7 @@ class SmartAttendanceSession(db.Model):
     radius_meters = db.Column(db.Integer, nullable=False, default=80)
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
+    meeting_url = db.Column(db.String(500))
     starts_at = db.Column(db.DateTime, default=datetime.utcnow)
     ends_at = db.Column(db.DateTime)
     late_after_minutes = db.Column(db.Integer, nullable=False, default=10)
@@ -536,6 +537,7 @@ def serialize_smart_session(smart_session, include_submissions=False):
         "radius_meters": smart_session.radius_meters,
         "latitude": smart_session.latitude,
         "longitude": smart_session.longitude,
+        "meeting_url": smart_session.meeting_url or "",
         "starts_at": smart_session.starts_at.strftime("%d %b %Y, %I:%M %p") if smart_session.starts_at else "",
         "ends_at": smart_session.ends_at.strftime("%d %b %Y, %I:%M %p") if smart_session.ends_at else "",
         "late_after_minutes": smart_session.late_after_minutes,
@@ -1213,6 +1215,13 @@ def migrate_legacy_data():
                     email=row["email"],
                 )
             )
+
+
+def ensure_schema_updates():
+    inspector_rows = db.session.execute(text("PRAGMA table_info(smart_attendance_sessions)")).mappings().all()
+    columns = {row["name"] for row in inspector_rows}
+    if inspector_rows and "meeting_url" not in columns:
+        db.session.execute(text("ALTER TABLE smart_attendance_sessions ADD COLUMN meeting_url VARCHAR(500)"))
 
 
 def build_demo_students(total=100):
@@ -1949,6 +1958,7 @@ def create_smart_attendance_session():
         subject=SUBJECT_LABELS[subject_key],
         latitude=get_number(data, "latitude", 0) if str(data.get("latitude", "")).strip() else None,
         longitude=get_number(data, "longitude", 0) if str(data.get("longitude", "")).strip() else None,
+        meeting_url=get_text(data, "meeting_url"),
         radius_meters=int(clamp(get_number(data, "radius_meters", 80), 20, 1000)),
         late_after_minutes=int(clamp(get_number(data, "late_after_minutes", 10), 1, 60)),
         ends_at=datetime.utcnow() + timedelta(minutes=duration),
@@ -2568,6 +2578,7 @@ def generate_pdf(student_id):
 
 with app.app_context():
     db.create_all()
+    ensure_schema_updates()
     migrate_legacy_data()
     seed_demo_data()
     db.session.commit()

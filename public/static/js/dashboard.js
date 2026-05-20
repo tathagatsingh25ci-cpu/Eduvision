@@ -510,6 +510,7 @@
                     </div>
                     <div class="qr-token">${escapeHtml(session.qr_token)}</div>
                     <p class="message">QR expires in ${escapeHtml(session.qr_expires_in)}s. Face + device + geofence checks are enabled.</p>
+                    ${session.meeting_url ? `<div class="actions"><a class="btn" href="${escapeHtml(session.meeting_url)}" target="_blank" rel="noopener">Join Live Class</a></div>` : ""}
                     ${isStudent ? `
                         <form class="attendance-edit-form smart-submit-form" data-session="${session.id}">
                             <label>QR Token <input name="qr_token" value="${escapeHtml(session.qr_token)}"></label>

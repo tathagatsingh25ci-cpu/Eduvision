@@ -43,7 +43,7 @@
                 <label>Parent Full Name <input name="full_name" autocomplete="name" required></label>
                 <label>Username <input name="username" autocomplete="username" placeholder="parent13" required></label>
                 <label>Email <input name="email" type="email" autocomplete="email" placeholder="parent@example.com"></label>
-                <label>Ward Roll Number(s) <input name="ward_roll_numbers" placeholder="STU001, STU002" required></label>
+                <label>Ward Roll Number(s) <input name="ward_roll_numbers" placeholder="Optional: STU001, STU002"></label>
                 <label>Relationship <input name="relationship" value="Parent"></label>
                 <label>Password
                     <span class="password-field">
@@ -52,6 +52,7 @@
                     </span>
                 </label>
             </div>
+            <p class="message">You can also search and open a registered student by name after signing in.</p>
             <div class="form-row">
                 <label class="check-row"><input name="terms" type="checkbox" required> I agree to secure ward data access</label>
                 <a class="subtle-link" href="{{ url_for('parent_login') }}">Already registered?</a>

@@ -23,6 +23,7 @@
             <a class="sidebar-link active" href="#overview" data-view="overview"><span class="sidebar-icon">OV</span>Overview</a>
             <a class="sidebar-link" href="#analytics" data-view="analytics"><span class="sidebar-icon">AN</span>Analytics</a>
             <a class="sidebar-link" href="#students" data-view="students"><span class="sidebar-icon">ST</span>Students</a>
+            <a class="sidebar-link parent-only" href="#parent-portal" data-view="parent-portal"><span class="sidebar-icon">WD</span>Wards</a>
             <a class="sidebar-link" href="#attendance" data-view="attendance"><span class="sidebar-icon">AT</span>Attendance</a>
             <a class="sidebar-link parent-only" href="#parent-messages" data-view="parent-messages"><span class="sidebar-icon">PM</span>Messages</a>
             <a class="sidebar-link" href="#prediction" data-view="prediction"><span class="sidebar-icon">AI</span>Prediction</a>
@@ -243,6 +244,33 @@
                         </form>
                     </aside>
                 </div>
+            </section>
+
+            <section class="view-section parent-only" id="view-parent-portal">
+                <div class="section-head">
+                    <div><p class="eyebrow">Parent ward finder</p><h1>Parent Portal</h1></div>
+                    <div class="chip-row">
+                        <span class="chip">Search Registered Students</span>
+                        <span class="chip">Marks Analysis</span>
+                        <span class="chip">Attendance PDF</span>
+                    </div>
+                </div>
+                <div class="parent-portal-hero">
+                    <form class="parent-search-panel" id="parentStudentLookupForm">
+                        <div>
+                            <p class="eyebrow">Find your ward</p>
+                            <h3>Enter the student name or roll number</h3>
+                            <p class="lead">Search any already registered student, open the ward, then review marks, attendance, reports, and alerts from the parent dashboard.</p>
+                        </div>
+                        <div class="parent-search-row">
+                            <input id="parentStudentLookupInput" name="q" placeholder="Example: Ananya Rao or STU001" autocomplete="off">
+                            <button class="btn" type="submit">Search</button>
+                        </div>
+                        <div class="parent-lookup-results" id="parentLookupResults"></div>
+                    </form>
+                    <aside class="parent-ward-focus" id="parentWardFocus"></aside>
+                </div>
+                <div class="parent-ward-grid" id="parentWardGrid"></div>
             </section>
 
             <section class="view-section" id="view-attendance">

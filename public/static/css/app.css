@@ -1200,6 +1200,104 @@ tbody tr:hover {
     gap: 14px;
 }
 
+.parent-portal-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: 18px;
+}
+
+.parent-search-panel,
+.parent-ward-focus,
+.parent-empty-state,
+.parent-ward-card,
+.parent-lookup-card {
+    border: 1px solid rgba(129, 230, 217, 0.14);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(8, 19, 38, 0.78), rgba(3, 7, 18, 0.5));
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.parent-search-panel,
+.parent-ward-focus,
+.parent-empty-state,
+.parent-ward-card {
+    padding: 18px;
+}
+
+.parent-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.parent-lookup-results {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.parent-lookup-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px;
+}
+
+.parent-lookup-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.parent-ward-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.parent-ward-card {
+    display: grid;
+    gap: 14px;
+}
+
+.parent-ward-top {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.parent-metric-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.parent-metric-row div {
+    padding: 12px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.parent-metric-row span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.parent-metric-row strong {
+    display: block;
+    margin-top: 7px;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.45rem;
+}
+
 .parent-alert-card {
     display: grid;
     gap: 10px;
@@ -1525,6 +1623,8 @@ tbody tr:hover {
     .preview-band,
     .attendance-hero,
     .attendance-layout,
+    .parent-portal-hero,
+    .parent-ward-grid,
     .parent-alert-grid,
     .model-grid {
         grid-template-columns: 1fr;
@@ -1604,6 +1704,10 @@ tbody tr:hover {
     .attendance-profile-strip,
     .attendance-class-grid,
     .attendance-edit-form,
+    .parent-search-row,
+    .parent-lookup-card,
+    .parent-ward-top,
+    .parent-metric-row,
     .filter-panel {
         grid-template-columns: 1fr;
     }

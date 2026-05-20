@@ -1309,7 +1309,7 @@ def signup():
         elif role == "parent":
             roll_numbers = [item.strip() for item in (data.get("ward_roll_numbers") or data.get("ward_roll_number") or "").replace(";", ",").split(",")]
             linked, missing = link_parent_to_students(user, roll_numbers, data.get("relationship") or "Parent")
-            if not linked:
+            if roll_numbers and any(roll_numbers) and not linked:
                 db.session.rollback()
                 return jsonify({"success": False, "message": "Enter at least one valid ward roll number"}), 400
         else:
@@ -1687,6 +1687,49 @@ def parent_messages():
     messages = parent_messages_payload(scoped_students().all())
     db.session.commit()
     return jsonify({"messages": messages})
+
+
+@app.route("/api/parent/student-lookup")
+@roles_required("parent")
+def parent_student_lookup():
+    query = (request.args.get("q") or "").strip().lower()
+    if len(query) < 2:
+        return jsonify([])
+
+    linked_ids = {link.student_id for link in ParentStudent.query.filter_by(parent_user_id=current_user().id).all()}
+    students = Student.query.order_by(Student.name.asc()).all()
+    matches = [
+        student
+        for student in students
+        if query in student.name.lower()
+        or query in student.roll_number.lower()
+        or query in (student.class_name or "").lower()
+        or query in (student.stream or "").lower()
+    ][:10]
+    ranks = rank_map(students)
+    return jsonify(
+        [
+            {
+                **serialize_student(student, ranks=ranks),
+                "linked": student.id in linked_ids,
+            }
+            for student in matches
+        ]
+    )
+
+
+@app.route("/api/parent/students/<int:student_id>/link", methods=["POST"])
+@roles_required("parent")
+def parent_link_student(student_id):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify({"success": False, "message": "Student not found"}), 404
+
+    existing = ParentStudent.query.filter_by(parent_user_id=current_user().id, student_id=student.id).first()
+    if not existing:
+        db.session.add(ParentStudent(parent_user_id=current_user().id, student_id=student.id, relationship="Parent"))
+        db.session.commit()
+    return jsonify({"success": True, "student": serialize_student(student, detail=True)})
 
 
 @app.route("/api/users")

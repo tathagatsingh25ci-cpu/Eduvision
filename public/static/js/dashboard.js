@@ -10,6 +10,7 @@
     let dashboardData = null;
     let selectedStudent = null;
     let selectedAttendanceId = null;
+    let parentInitialViewShown = false;
     let searchTimer = null;
 
     const numberFields = [
@@ -80,6 +81,11 @@
         attendanceDetailTitle: document.getElementById("attendanceDetailTitle"),
         attendanceDetailStatus: document.getElementById("attendanceDetailStatus"),
         attendanceDetail: document.getElementById("attendanceDetail"),
+        parentLookupForm: document.getElementById("parentStudentLookupForm"),
+        parentLookupInput: document.getElementById("parentStudentLookupInput"),
+        parentLookupResults: document.getElementById("parentLookupResults"),
+        parentWardFocus: document.getElementById("parentWardFocus"),
+        parentWardGrid: document.getElementById("parentWardGrid"),
         parentAlertGrid: document.getElementById("parentAlertGrid"),
         reportPdfLink: document.getElementById("reportPdfLink"),
         selectedPdfLink: document.getElementById("selectedPdfLink"),
@@ -611,6 +617,118 @@
         `).join("");
     }
 
+    function renderParentPortal() {
+        if (!elements.parentWardGrid) return;
+        const wards = dashboardData?.students || [];
+        if (!wards.length) {
+            elements.parentWardFocus.innerHTML = `
+                <span class="feature-icon">WD</span>
+                <h3>No ward opened yet</h3>
+                <p class="lead">Search a registered student by name or roll number to unlock marks analysis, attendance, reports, and parent messages.</p>
+            `;
+            elements.parentWardGrid.innerHTML = `
+                <article class="parent-empty-state">
+                    <h3>Start with the search box above</h3>
+                    <p class="lead">Once you open a student, their analytics will stay available in this parent portal.</p>
+                </article>
+            `;
+            return;
+        }
+
+        const primary = wards[0];
+        elements.parentWardFocus.innerHTML = `
+            <p class="eyebrow">Active ward</p>
+            <h3>${escapeHtml(primary.name)}</h3>
+            <div class="details-list">
+                <div><span>Roll Number</span><strong>${escapeHtml(primary.roll_number)}</strong></div>
+                <div><span>Class</span><strong>${escapeHtml(primary.class_name)}-${escapeHtml(primary.section || "")}</strong></div>
+                <div><span>Marks</span><strong>${escapeHtml(primary.percentage)}%</strong></div>
+                <div><span>Attendance</span><strong>${escapeHtml(primary.attendance)}%</strong></div>
+                <div><span>Risk</span><strong>${escapeHtml(primary.risk_level)}</strong></div>
+            </div>
+            <div class="actions" style="margin-top: 14px;">
+                <button class="btn secondary" type="button" data-parent-view="${primary.id}">Open Analysis</button>
+                <a class="btn secondary" href="/api/report/pdf/${primary.id}" target="_blank">Report PDF</a>
+                <a class="btn secondary" href="/api/attendance/pdf/${primary.id}" target="_blank">Attendance PDF</a>
+            </div>
+        `;
+
+        elements.parentWardGrid.innerHTML = wards.map((ward) => `
+            <article class="parent-ward-card">
+                <div class="parent-ward-top">
+                    <span class="rank-badge">${escapeHtml(ward.rank)}</span>
+                    <div>
+                        <h3>${escapeHtml(ward.name)}</h3>
+                        <p class="message">${escapeHtml(ward.roll_number)} | Class ${escapeHtml(ward.class_name)}-${escapeHtml(ward.section || "")}</p>
+                    </div>
+                    <span class="pill ${riskClass(ward.risk_level)}">${escapeHtml(ward.risk_level)}</span>
+                </div>
+                <div class="parent-metric-row">
+                    <div><span>Marks</span><strong>${escapeHtml(ward.percentage)}%</strong></div>
+                    <div><span>Attendance</span><strong>${escapeHtml(ward.attendance)}%</strong></div>
+                    <div><span>Predicted</span><strong>${escapeHtml(ward.predicted_percentage)}%</strong></div>
+                </div>
+                <div class="actions">
+                    <button class="btn secondary" type="button" data-parent-view="${ward.id}">Full Analysis</button>
+                    <a class="btn secondary" href="/api/attendance/pdf/${ward.id}" target="_blank">Attendance PDF</a>
+                    <a class="btn secondary" href="/api/report/pdf/${ward.id}" target="_blank">Report PDF</a>
+                </div>
+            </article>
+        `).join("");
+
+        document.querySelectorAll("[data-parent-view]").forEach((button) => {
+            button.addEventListener("click", () => selectStudent(button.dataset.parentView, true));
+        });
+    }
+
+    async function searchParentStudent(query) {
+        if (!elements.parentLookupResults) return;
+        const value = query.trim();
+        if (value.length < 2) {
+            elements.parentLookupResults.innerHTML = `<p class="message">Type at least 2 characters.</p>`;
+            return;
+        }
+        try {
+            showLoading(true);
+            const results = await fetchJson(`/api/parent/student-lookup?q=${encodeURIComponent(value)}`);
+            elements.parentLookupResults.innerHTML = results.length ? results.map((student) => `
+                <article class="parent-lookup-card">
+                    <div>
+                        <strong>${escapeHtml(student.name)}</strong>
+                        <p class="message">${escapeHtml(student.roll_number)} | Class ${escapeHtml(student.class_name)}-${escapeHtml(student.section || "")} | ${escapeHtml(student.stream || "")}</p>
+                    </div>
+                    <div class="parent-lookup-score">
+                        <span class="pill">${escapeHtml(student.percentage)}%</span>
+                        <button class="btn secondary" type="button" data-parent-open="${student.id}">${student.linked ? "Open" : "Open Ward"}</button>
+                    </div>
+                </article>
+            `).join("") : `<p class="lead">No registered student matched that name.</p>`;
+
+            elements.parentLookupResults.querySelectorAll("[data-parent-open]").forEach((button) => {
+                button.addEventListener("click", () => openParentWard(button.dataset.parentOpen));
+            });
+        } catch (error) {
+            elements.parentLookupResults.innerHTML = `<p class="message error">${escapeHtml(error.message)}</p>`;
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function openParentWard(studentId) {
+        try {
+            showLoading(true);
+            await fetchJson(`/api/parent/students/${studentId}/link`, { method: "POST" });
+            await loadDashboard();
+            await selectStudent(studentId, false);
+            switchView("parent-portal");
+            window.showToast("Ward analytics opened");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
     async function updateAttendanceClass(event) {
         event.preventDefault();
         const form = event.currentTarget;
@@ -866,10 +984,15 @@
             renderToppers(dashboardData.toppers);
             renderAttendancePortal(dashboardData.attendance_portal);
             renderParentMessages(dashboardData.parent_messages || []);
+            renderParentPortal();
             if (dashboardData.students.length && !selectedStudent) {
                 await selectStudent(dashboardData.students[0].id, false);
             }
             if (role === "admin") loadUsers();
+            if (isParent && !parentInitialViewShown) {
+                parentInitialViewShown = true;
+                switchView("parent-portal");
+            }
         } catch (error) {
             window.showToast(error.message);
         } finally {
@@ -897,6 +1020,11 @@
     elements.studentFilters?.addEventListener("change", applyStudentFilters);
     elements.studentFilters?.addEventListener("reset", () => {
         setTimeout(applyStudentFilters, 0);
+    });
+
+    elements.parentLookupForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        searchParentStudent(elements.parentLookupInput?.value || "");
     });
 
     elements.studentForm?.addEventListener("submit", async (event) => {

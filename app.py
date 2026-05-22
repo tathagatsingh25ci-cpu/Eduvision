@@ -1478,6 +1478,124 @@ def ensure_syllabus_chapters(student):
         db.session.flush()
 
 
+def study_plan_payload(student, chapters=None):
+    chapters = chapters if chapters is not None else SyllabusChapter.query.filter_by(student_id=student.id).all()
+    today = datetime.utcnow().date()
+    prediction = prediction_payload(student)
+    subject_rows = student_subject_breakdown(student)
+    weak_subject_names = prediction.get("weak_subjects") or [row["subject"] for row in subject_rows[:3]]
+    weak_subject_keys = {
+        field
+        for field, label in SUBJECT_LABELS.items()
+        if label in weak_subject_names
+    }
+    attendance_rows = class_attendance_rows(student)
+    lowest_attendance = min(attendance_rows, key=lambda row: row["percentage"]) if attendance_rows else None
+    attendance_risk = lowest_attendance and lowest_attendance["percentage"] < 75
+    risk_level = prediction["risk_level"]
+    unfinished = [
+        chapter
+        for chapter in chapters
+        if chapter.status != "Test-ready"
+    ]
+    status_weight = {"Not started": 0, "Learning": 1, "Revised": 2, "Test-ready": 3}
+
+    def priority(chapter):
+        days = (chapter.exam_date - today).days if chapter.exam_date else 99
+        weak_bonus = -16 if chapter.subject_key in weak_subject_keys else 0
+        status_bonus = status_weight.get(chapter.status, 0) * 7
+        return days + weak_bonus + status_bonus
+
+    priority_chapters = sorted(unfinished, key=priority)
+    if not priority_chapters:
+        priority_chapters = sorted(chapters, key=lambda chapter: chapter.exam_date or today)
+
+    hours_per_day = 3 if risk_level == "High Risk" else 2.5 if risk_level == "Moderate Risk" else 2
+    if attendance_risk:
+        hours_per_day = max(1.5, hours_per_day - 0.5)
+
+    daily_plan = []
+    for offset in range(7):
+        date = today + timedelta(days=offset)
+        primary = priority_chapters[offset % len(priority_chapters)] if priority_chapters else None
+        secondary = priority_chapters[(offset + 2) % len(priority_chapters)] if len(priority_chapters) > 1 else primary
+        sessions = []
+        if primary:
+            sessions.append(
+                {
+                    "title": f"{primary.subject}: {primary.chapter}",
+                    "duration": "50 min",
+                    "type": "Deep study" if primary.status == "Not started" else "Active revision",
+                    "reason": "Priority chapter from exam countdown and syllabus status.",
+                }
+            )
+        if secondary and secondary.id != getattr(primary, "id", None):
+            sessions.append(
+                {
+                    "title": f"{secondary.subject}: {secondary.chapter}",
+                    "duration": "35 min",
+                    "type": "Practice",
+                    "reason": "Second pass to keep weekly progress balanced.",
+                }
+            )
+        if weak_subject_names:
+            sessions.append(
+                {
+                    "title": f"Weak subject drill: {weak_subject_names[offset % len(weak_subject_names)]}",
+                    "duration": "30 min",
+                    "type": "Mistake review",
+                    "reason": "Pulled from AI prediction weak-subject signals.",
+                }
+            )
+        sessions.append(
+            {
+                "title": "Recall test + update tracker",
+                "duration": "15 min",
+                "type": "Checkpoint",
+                "reason": "Mark chapters as Learning, Revised, or Test-ready after proof of recall.",
+            }
+        )
+        if attendance_risk and offset in {0, 2, 4}:
+            sessions.insert(
+                0,
+                {
+                    "title": f"Attend {lowest_attendance['subject']} class",
+                    "duration": "Class time",
+                    "type": "Attendance recovery",
+                    "reason": f"{lowest_attendance['subject']} attendance is {lowest_attendance['percentage']}%.",
+                },
+            )
+        daily_plan.append(
+            {
+                "day": date.strftime("%A"),
+                "date": date.strftime("%d %b"),
+                "focus": primary.subject if primary else "Revision",
+                "target_hours": hours_per_day,
+                "sessions": sessions,
+            }
+        )
+
+    next_exam = min([chapter for chapter in chapters if chapter.exam_date], key=lambda chapter: chapter.exam_date, default=None)
+    return {
+        "headline": "Recovery sprint" if risk_level != "Low Risk" else "Score booster week",
+        "risk_level": risk_level,
+        "attendance_risk": bool(attendance_risk),
+        "target_hours_per_day": hours_per_day,
+        "weak_subjects": weak_subject_names[:4],
+        "next_exam": {
+            "subject": next_exam.subject if next_exam else "No exam set",
+            "chapter": next_exam.chapter if next_exam else "",
+            "days_left": (next_exam.exam_date - today).days if next_exam and next_exam.exam_date else None,
+        },
+        "strategy": [
+            f"Prioritize {', '.join(weak_subject_names[:3])}." if weak_subject_names else "Maintain current subject balance.",
+            "Protect attendance before adding extra study load." if attendance_risk else "Attendance is stable enough for focused revision.",
+            f"Prediction risk is {risk_level}; update marks and syllabus status weekly.",
+        ],
+        "days": daily_plan,
+    }
+
+
 def syllabus_payload(student):
     ensure_syllabus_chapters(student)
     chapters = SyllabusChapter.query.filter_by(student_id=student.id).order_by(SyllabusChapter.exam_date.asc(), SyllabusChapter.subject.asc()).all()
@@ -1535,6 +1653,7 @@ def syllabus_payload(student):
             }
             for chapter in chapters
         ],
+        "study_plan": study_plan_payload(student, chapters),
     }
 
 

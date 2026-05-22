@@ -2047,6 +2047,105 @@ tbody tr:hover {
     padding: 7px 9px;
 }
 
+.study-plan-card {
+    margin-top: 18px;
+}
+
+.study-plan-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.study-plan-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(220px, 0.45fr) minmax(260px, 0.7fr);
+    gap: 14px;
+    align-items: stretch;
+}
+
+.study-plan-summary > div,
+.study-day-card,
+.study-session {
+    border: 1px solid rgba(129, 230, 217, 0.14);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.46);
+}
+
+.study-plan-summary > div {
+    padding: 16px;
+}
+
+.study-plan-summary h2 {
+    margin-bottom: 8px;
+    color: var(--cyan);
+}
+
+.study-strategy-list {
+    display: grid;
+    gap: 8px;
+}
+
+.study-strategy-list p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.study-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(220px, 1fr));
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.study-day-card {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 220px;
+    padding: 14px;
+}
+
+.study-day-card header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.study-day-card header strong,
+.study-session strong {
+    display: block;
+}
+
+.study-day-card header span,
+.study-session span,
+.study-session small {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 900;
+}
+
+.study-session-list {
+    display: grid;
+    gap: 10px;
+}
+
+.study-session {
+    display: grid;
+    gap: 5px;
+    padding: 10px;
+}
+
+.study-session span {
+    color: var(--lime);
+    text-transform: uppercase;
+}
+
+.study-session small {
+    line-height: 1.45;
+}
+
 .hidden {
     display: none !important;
 }
@@ -2329,6 +2428,7 @@ tbody tr:hover {
     .parent-alert-grid,
     .syllabus-hero,
     .syllabus-layout,
+    .study-plan-summary,
     .model-grid {
         grid-template-columns: 1fr;
     }

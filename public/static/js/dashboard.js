@@ -88,6 +88,7 @@
         syllabusProgressPill: document.getElementById("syllabusProgressPill"),
         syllabusSubjectGrid: document.getElementById("syllabusSubjectGrid"),
         syllabusBoard: document.getElementById("syllabusBoard"),
+        studyPlanGrid: document.getElementById("studyPlanGrid"),
         smartSessionForm: document.getElementById("smartSessionForm"),
         teacherNoteForm: document.getElementById("teacherNoteForm"),
         smartSessionCount: document.getElementById("smartSessionCount"),
@@ -637,6 +638,48 @@
             elements.syllabusBoard.querySelectorAll("[data-syllabus-status]").forEach((select) => {
                 select.addEventListener("change", () => updateSyllabusChapter(select.dataset.syllabusStatus, { status: select.value }));
             });
+        }
+
+        if (elements.studyPlanGrid) {
+            const plan = payload.study_plan || {};
+            const nextExam = plan.next_exam || {};
+            elements.studyPlanGrid.innerHTML = `
+                <section class="study-plan-summary">
+                    <div>
+                        <p class="eyebrow">${escapeHtml(plan.headline || "AI study plan")}</p>
+                        <h2>${escapeHtml(plan.target_hours_per_day || 0)} hrs/day</h2>
+                        <p class="lead">Next: ${escapeHtml(nextExam.subject || "No exam set")} ${nextExam.days_left === null || nextExam.days_left === undefined ? "" : `| ${escapeHtml(nextExam.days_left)} days left`}</p>
+                    </div>
+                    <div class="tag-cloud">
+                        <span class="pill ${riskClass(plan.risk_level || "Low Risk")}">${escapeHtml(plan.risk_level || "Low Risk")}</span>
+                        <span class="pill ${plan.attendance_risk ? "warning" : "success"}">${plan.attendance_risk ? "Attendance recovery" : "Attendance stable"}</span>
+                        ${(plan.weak_subjects || []).slice(0, 3).map((subject) => `<span class="pill warning">${escapeHtml(subject)}</span>`).join("")}
+                    </div>
+                    <div class="study-strategy-list">
+                        ${(plan.strategy || []).map((item) => `<p>${escapeHtml(item)}</p>`).join("")}
+                    </div>
+                </section>
+                <section class="study-week-grid">
+                    ${(plan.days || []).map((day) => `
+                        <article class="study-day-card">
+                            <header>
+                                <div><strong>${escapeHtml(day.day)}</strong><span>${escapeHtml(day.date)}</span></div>
+                                <span class="pill">${escapeHtml(day.target_hours)}h</span>
+                            </header>
+                            <p class="message">Focus: ${escapeHtml(day.focus)}</p>
+                            <div class="study-session-list">
+                                ${(day.sessions || []).map((session) => `
+                                    <div class="study-session">
+                                        <span>${escapeHtml(session.type)}</span>
+                                        <strong>${escapeHtml(session.title)}</strong>
+                                        <small>${escapeHtml(session.duration)} | ${escapeHtml(session.reason)}</small>
+                                    </div>
+                                `).join("")}
+                            </div>
+                        </article>
+                    `).join("")}
+                </section>
+            `;
         }
     }
 

@@ -1757,7 +1757,7 @@ tbody tr:hover {
     right: 0;
     bottom: 72px;
     display: none;
-    width: min(390px, calc(100vw - 36px));
+    width: min(430px, calc(100vw - 36px));
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: rgba(3, 7, 18, 0.96);
@@ -1790,21 +1790,32 @@ tbody tr:hover {
 .assistant-messages {
     display: grid;
     gap: 10px;
-    max-height: 300px;
+    max-height: 360px;
     overflow: auto;
     padding: 12px;
 }
 
 .assistant-message {
+    width: fit-content;
+    max-width: 92%;
     padding: 10px 12px;
     border: 1px solid rgba(129, 230, 217, 0.12);
     border-radius: var(--radius);
     background: rgba(15, 23, 42, 0.82);
+    color: var(--text);
+    line-height: 1.55;
+    white-space: pre-wrap;
 }
 
 .assistant-message.user {
+    justify-self: end;
     border-color: rgba(34, 211, 238, 0.34);
     background: rgba(34, 211, 238, 0.12);
+}
+
+.assistant-message.thinking {
+    color: var(--muted);
+    font-style: italic;
 }
 
 .pop-icon {

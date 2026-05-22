@@ -804,6 +804,114 @@ def format_subject_list(rows, limit=3):
     return ", ".join(f"{row['subject']} {row['marks']}%" for row in rows[:limit])
 
 
+def has_any(text, terms):
+    return any(term in text for term in terms)
+
+
+def student_life_reply(message_lower, student=None, user=None):
+    student_name = student.name.split()[0] if student and student.name else ""
+    you = "you" if not student_name or (user and user.role == "student") else student_name
+    your = "your" if you == "you" else f"{student_name}'s"
+
+    if has_any(message_lower, ["kill myself", "suicide", "self harm", "self-harm", "end my life", "don't want to live", "dont want to live"]):
+        return (
+            "I am really sorry you are feeling this much pain. You should not have to sit with it alone. "
+            "Please tell a trusted adult right now, such as a parent, teacher, school counselor, or nearby friend, and contact local emergency help if you might hurt yourself. "
+            "For the next minute, move away from anything unsafe, breathe slowly, and send one simple message to someone: 'I need help right now.'"
+        )
+
+    if has_any(message_lower, ["hello", "hi", "hey", "good morning", "good evening"]):
+        return (
+            f"Hey, I am here. You can talk to me about studies, marks, attendance, friends, pressure at home, motivation, or just how {you} are feeling today."
+        )
+
+    if has_any(message_lower, ["thank", "thanks", "thx"]):
+        return "Anytime. I am glad you said it out loud here. One small next step is enough; you do not have to solve the whole day at once."
+
+    if has_any(message_lower, ["stress", "stressed", "anxiety", "anxious", "pressure", "overwhelmed", "panic", "scared", "fear"]):
+        return (
+            f"That sounds heavy, and it makes sense that {you} feel pressured. Try this: pause for 60 seconds, name the exact worry, then choose only one tiny action, like revising one topic or messaging a teacher. "
+            "When everything feels big, the goal is not perfection; it is getting the next 10 minutes under control."
+        )
+
+    if has_any(message_lower, ["sad", "cry", "crying", "lonely", "alone", "depressed", "upset", "hurt", "bad mood"]):
+        return (
+            f"I am sorry {you} are feeling this way. Bad days can make it feel like nothing is working, but this feeling is a state, not {your} whole story. "
+            "Drink water, step away from the screen for a moment, and tell one safe person what is going on. I can stay with you here too; what happened today?"
+        )
+
+    if has_any(message_lower, ["bully", "bullied", "tease", "teasing", "harass", "harassment", "fight", "rumor"]):
+        return (
+            "That is not something you have to handle silently. Save screenshots or details if there are messages, avoid replying when emotions are high, and tell a teacher, mentor, counselor, or parent. "
+            "Being targeted does not mean you are weak; getting support is the smart move."
+        )
+
+    if has_any(message_lower, ["friend", "friends", "best friend", "ignored", "left out", "group"]):
+        return (
+            "Friendship problems can hurt more than people admit. Before assuming the worst, try one calm message like, 'Did something change between us?' "
+            "If they still make you feel small again and again, it is okay to protect your peace and spend time with people who are easier to breathe around."
+        )
+
+    if has_any(message_lower, ["parent", "parents", "family", "home", "expectation", "expectations", "compare", "comparison"]):
+        return (
+            "Family expectations can feel like a backpack that never comes off. A useful approach is to show a simple plan instead of only explaining feelings: what you will study, when, and what help you need. "
+            "You deserve to be heard, not only measured by marks."
+        )
+
+    if has_any(message_lower, ["teacher", "sir", "madam", "ma'am", "strict", "scold", "scolded"]):
+        return (
+            "A strict teacher can make school feel tense. If something went wrong, keep the conversation short and specific: accept the part that is yours, ask what to improve, and write down the next step. "
+            "One awkward conversation can save many days of stress."
+        )
+
+    if has_any(message_lower, ["exam", "exams", "test", "viva", "practical", "board", "fail", "failed"]):
+        return (
+            f"Exam fear is real, but it becomes easier when {you} stop treating the whole syllabus as one monster. Pick three buckets: sure topics, shaky topics, and untouched topics. "
+            "Start with shaky topics because they improve fastest. Even two focused hours can change the direction of a week."
+        )
+
+    if has_any(message_lower, ["procrastinate", "procrastination", "lazy", "distracted", "phone", "instagram", "youtube", "game"]):
+        return (
+            "You are not broken; your brain is choosing easy reward over difficult reward. Make the first step almost too small: open the book, set a 12-minute timer, and keep the phone across the room. "
+            "After 12 minutes, you can stop or continue. Starting is the win."
+        )
+
+    if has_any(message_lower, ["motivate", "motivation", "give up", "tired", "exhausted", "burnout", "burned out"]):
+        return (
+            "Motivation is unreliable; rhythm is kinder. Today, aim for a small honest win: one page, five sums, one summary, or one doubt cleared. "
+            "You do not need to feel powerful before starting. Sometimes starting is what brings the power back."
+        )
+
+    if has_any(message_lower, ["sleep", "slept", "insomnia", "headache", "tired"]):
+        return (
+            "Sleep affects memory, mood, and marks more than students are usually told. If you are exhausted, do a lighter revision pass, stop caffeine late, and give yourself a fixed wind-down time tonight. "
+            "A rested brain studies faster than a punished one."
+        )
+
+    if has_any(message_lower, ["crush", "relationship", "breakup", "love", "proposal"]):
+        return (
+            "Feelings can be intense during student life, and they are not silly. Just do not let one person's response decide your worth. "
+            "Be respectful, keep boundaries, and keep your routines alive even when your emotions are loud."
+        )
+
+    if has_any(message_lower, ["who are you", "what can you do", "help me", "talk to me"]):
+        return (
+            "I am EduVision Assistant. I can help with marks, attendance, weak subjects, study plans, notes, and also the human side of student life: stress, friends, parents, motivation, exams, and rough days."
+        )
+
+    return None
+
+
+def general_assistant_reply(message_lower, student=None, user=None):
+    life_reply = student_life_reply(message_lower, student, user)
+    if life_reply:
+        return life_reply
+    return (
+        "I hear you. Tell me a little more about what happened, and I will respond like a study companion, not a notice board. "
+        "If this is about school, I can help break it into a next step; if it is about feelings, we can slow it down together."
+    )
+
+
 def personalized_context(student):
     rows = class_attendance_rows(student)
     marks = student_subject_breakdown(student)
@@ -833,21 +941,41 @@ def assistant_reply(user, message, student_id=None):
     message_lower = (message or "").lower()
     student = None
     if student_id:
-        student = db.session.get(Student, int(student_id))
+        try:
+            student = db.session.get(Student, int(student_id))
+        except (TypeError, ValueError):
+            student = None
     if not student and user.role == "student":
         student = student_from_user(user)
     if not student:
         student = scoped_students().first()
     if not student or not can_view_student(student):
-        return "Open a student profile first so I can answer with attendance context."
+        return general_assistant_reply(message_lower, None, user)
+
+    life_reply = student_life_reply(message_lower, student, user)
+    academic_terms = [
+        "marks", "score", "percentage", "result", "weak subject", "weakest", "low subject", "improve subject",
+        "strong", "best", "top subject", "miss", "bunk", "skip", "attendance", "present", "absent",
+        "75", "need attendance", "need classes", "classes need", "need to attend", "semester", "predict", "future", "rank", "position", "class rank",
+        "notes", "pdf", "material", "late", "proxy", "qr", "face",
+    ]
+    if life_reply and not has_any(message_lower, academic_terms):
+        return life_reply
+    academic_intent_terms = academic_terms + ["recommend", "plan", "study", "suggest", "what should"]
+    if not life_reply and not has_any(message_lower, academic_intent_terms):
+        return general_assistant_reply(message_lower, student, user)
 
     context = personalized_context(student)
     lowest = context["lowest_attendance"]
-    name = student.name
+    is_self = user.role == "student" and student.roll_number == user.username
+    name = "you" if is_self else student.name
+    name_title = "You" if is_self else student.name
+    possessive = "Your" if is_self else f"{student.name}'s"
+    needs_word = "need" if is_self else "needs"
 
     if any(term in message_lower for term in ["marks", "score", "percentage", "result"]):
         return (
-            f"{name}'s current marks average is {context['percentage']}% ({context['category']}). "
+            f"{possessive} current marks average is {context['percentage']}% ({context['category']}). "
             f"Strongest: {format_subject_list(context['strong_marks'])}. "
             f"Needs work: {format_subject_list(context['weak_marks'])}. "
             f"Predicted final result is {context['prediction']['predicted_percentage']}% with {context['prediction']['risk_level']}."
@@ -859,31 +987,33 @@ def assistant_reply(user, message, student_id=None):
         if lowest:
             attendance_text = f" Attendance-wise, lowest is {lowest['subject']} at {lowest['percentage']}%."
         return (
-            f"{name}'s weakest marks subject is {weakest_marks['subject']} at {weakest_marks['marks']}%. "
+            f"{possessive} weakest marks subject is {weakest_marks['subject']} at {weakest_marks['marks']}%. "
             f"Focus first on {format_subject_list(context['weak_marks'])}.{attendance_text}"
         )
 
     if any(term in message_lower for term in ["strong", "best", "top subject"]):
-        return f"{name}'s strongest subjects are {format_subject_list(context['strong_marks'])}. Use these as confidence anchors while revising weaker chapters."
+        return f"{possessive} strongest subjects are {format_subject_list(context['strong_marks'])}. Use these as confidence anchors while revising weaker chapters."
 
     if any(term in message_lower for term in ["miss", "bunk", "skip"]):
-        return f"{name} can miss {classes_can_miss(context['attended'], context['total'])} more classes and stay at or above 75% overall attendance. Current attendance is {context['attendance']}%."
-    if any(term in message_lower for term in ["attendance", "present", "absent", "class"]):
+        return f"{name_title} can miss {classes_can_miss(context['attended'], context['total'])} more classes and stay at or above 75% overall attendance. Current attendance is {context['attendance']}%."
+    if any(term in message_lower for term in ["attendance", "present", "absent"]):
         if lowest:
             return (
-                f"{name}'s overall attendance is {context['attendance']}%. "
+                f"{possessive} overall attendance is {context['attendance']}%. "
                 f"Lowest subject attendance: {lowest['subject']} at {lowest['percentage']}%. "
                 f"Need {classes_needed_for_target(lowest['attended_classes'], lowest['total_classes'])} more {lowest['subject']} classes to reach 75%."
             )
         return "No subject-wise attendance is available yet."
 
-    if "75" in message_lower or "need" in message_lower:
-        return f"{name} needs {classes_needed_for_target(context['attended'], context['total'])} more consecutive classes to reach 75% overall attendance. Current attendance is {context['attendance']}%."
+    if "75" in message_lower or has_any(message_lower, ["need attendance", "need classes", "classes need", "need to attend"]):
+        return f"{name_title} {needs_word} {classes_needed_for_target(context['attended'], context['total'])} more consecutive classes to reach 75% overall attendance. Current attendance is {context['attendance']}%."
     if any(term in message_lower for term in ["semester", "predict", "future"]):
         predicted_attendance = attendance_intelligence(context["rows"])["predicted_semester_attendance"]
-        return f"{name}'s predicted final marks are {context['prediction']['predicted_percentage']}%, and predicted semester attendance is {predicted_attendance}%."
+        return f"{possessive} predicted final marks are {context['prediction']['predicted_percentage']}%, and predicted semester attendance is {predicted_attendance}%."
     if any(term in message_lower for term in ["rank", "position", "class rank"]):
-        return f"{name} is currently rank #{context['rank']} in your visible student list, with {context['percentage']}% marks and {context['attendance']}% attendance."
+        if is_self:
+            return f"You are currently rank #{context['rank']} in your visible student list, with {context['percentage']}% marks and {context['attendance']}% attendance."
+        return f"{student.name} is currently rank #{context['rank']} in your visible student list, with {context['percentage']}% marks and {context['attendance']}% attendance."
     if any(term in message_lower for term in ["recommend", "plan", "study", "suggest", "what should"]):
         recommendations = context["prediction"]["recommendations"][:3]
         return f"For {name}: " + " ".join(recommendations)
@@ -896,7 +1026,7 @@ def assistant_reply(user, message, student_id=None):
         return "Smart attendance uses a 20-second QR token, classroom radius check, device ID, duplicate-submission detection, late-entry timing, and random selfie verification."
     return (
         f"For {name}: marks average {context['percentage']}%, attendance {context['attendance']}%, "
-        f"rank #{context['rank']}. Weakest marks subject is {context['weak_marks'][0]['subject']} "
+        f"rank #{context['rank']}. {possessive} weakest marks subject is {context['weak_marks'][0]['subject']} "
         f"({context['weak_marks'][0]['marks']}%). Ask me about marks, attendance, rank, notes, or a study plan."
     )
 

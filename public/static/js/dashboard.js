@@ -947,6 +947,7 @@
         node.textContent = text;
         elements.assistantMessages.appendChild(node);
         elements.assistantMessages.scrollTop = elements.assistantMessages.scrollHeight;
+        return node;
     }
 
     async function askAssistant(event) {
@@ -955,14 +956,17 @@
         if (!message) return;
         elements.assistantInput.value = "";
         addAssistantMessage(message, "user");
+        const thinking = addAssistantMessage("I am listening...", "bot thinking");
         try {
             const data = await fetchJson("/api/assistant", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message, student_id: selectedStudent?.id }),
             });
-            addAssistantMessage(data.reply || "I could not generate a reply.");
+            if (thinking) thinking.remove();
+            addAssistantMessage(data.reply || "I am here, but I could not find the right words for that. Say it another way?");
         } catch (error) {
+            if (thinking) thinking.remove();
             addAssistantMessage(error.message);
         }
     }

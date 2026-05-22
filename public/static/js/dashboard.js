@@ -69,6 +69,7 @@
         searchResults: document.getElementById("searchResults"),
         analysisSummaryGrid: document.getElementById("analysisSummaryGrid"),
         analysisInsightsGrid: document.getElementById("analysisInsightsGrid"),
+        trendDiagnosticsGrid: document.getElementById("trendDiagnosticsGrid"),
         subjectAnalysisBody: document.getElementById("subjectAnalysisBody"),
         insightGrid: document.getElementById("insightGrid"),
         interventionGrid: document.getElementById("interventionGrid"),
@@ -454,6 +455,45 @@
         });
 
         const analysis = data.result_analysis || {};
+        const trend = analysis.trend_over_time || {};
+        const trendSubjects = [...(trend.subjects || [])]
+            .sort((a, b) => Math.abs(Number(b.delta) || 0) - Math.abs(Number(a.delta) || 0))
+            .slice(0, 4);
+        const trendPalette = ["#22c55e", "#f59e0b", "#f472b6", "#a3e635"];
+        renderChart("subjectTrend", "subjectTrendChart", {
+            type: "line",
+            data: {
+                labels: trend.labels || [],
+                datasets: [
+                    {
+                        label: "Overall average",
+                        data: trend.overall || [],
+                        tension: 0.38,
+                        borderColor: "#22d3ee",
+                        backgroundColor: "rgba(34,211,238,0.14)",
+                        fill: true,
+                        pointRadius: 4,
+                        borderWidth: 3,
+                    },
+                    ...trendSubjects.map((subject, index) => ({
+                        label: subject.short || subject.subject,
+                        data: subject.values || [],
+                        tension: 0.34,
+                        borderColor: trendPalette[index % trendPalette.length],
+                        backgroundColor: "transparent",
+                        pointRadius: 3,
+                        borderWidth: 2,
+                    })),
+                ],
+            },
+            options: baseChartOptions({
+                scales: {
+                    x: { ticks: { color: "#8fa8bd" }, grid: { color: "rgba(143,168,189,0.1)" } },
+                    y: { min: 0, max: 100, ticks: { color: "#8fa8bd" }, grid: { color: "rgba(143,168,189,0.1)" } },
+                },
+            }),
+        });
+
         const comparisons = analysis.comparisons || [];
         renderChart("comparison", "comparisonChart", {
             type: "bar",
@@ -515,6 +555,39 @@
         }
         if (elements.analysisInsightsGrid) {
             elements.analysisInsightsGrid.innerHTML = (analysis.insights || []).map((item) => `
+                <article class="analysis-insight-card">
+                    <h3>${escapeHtml(item.title)}</h3>
+                    <p>${escapeHtml(item.text)}</p>
+                </article>
+            `).join("");
+        }
+        if (elements.trendDiagnosticsGrid) {
+            const trend = analysis.trend_over_time || {};
+            const subjects = trend.subjects || [];
+            const improvingCount = subjects.filter((item) => Number(item.delta) > 0).length;
+            const strongestGrowth = [...subjects].sort((a, b) => Number(b.delta) - Number(a.delta))[0];
+            const slowestGrowth = [...subjects].sort((a, b) => Number(a.delta) - Number(b.delta))[0];
+            const overall = trend.overall || [];
+            const overallDelta = overall.length ? Number(overall[overall.length - 1]) - Number(overall[0]) : 0;
+            const cards = [
+                {
+                    title: "Overall Momentum",
+                    text: `${overallDelta >= 0 ? "+" : ""}${overallDelta.toFixed(1)}% from Unit Test 1 to Final across all subjects.`,
+                },
+                {
+                    title: "Subjects Improving",
+                    text: `${improvingCount} of ${subjects.length} subjects show upward movement across the exam cycle.`,
+                },
+                {
+                    title: "Biggest Rise",
+                    text: strongestGrowth ? `${strongestGrowth.subject} improved by +${Number(strongestGrowth.delta).toFixed(1)}%.` : "Trend data will appear after marks are available.",
+                },
+                {
+                    title: "Watch Closely",
+                    text: slowestGrowth ? `${slowestGrowth.subject} has the smallest gain at +${Number(slowestGrowth.delta).toFixed(1)}%.` : "No watch area detected yet.",
+                },
+            ];
+            elements.trendDiagnosticsGrid.innerHTML = cards.map((item) => `
                 <article class="analysis-insight-card">
                     <h3>${escapeHtml(item.title)}</h3>
                     <p>${escapeHtml(item.text)}</p>

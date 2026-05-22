@@ -1277,6 +1277,148 @@ input[type="checkbox"] {
     margin: 0;
 }
 
+.student-reward-layout,
+.revision-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
+    gap: 18px;
+}
+
+.badge-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.achievement-badge {
+    min-height: 132px;
+    padding: 15px;
+    border: 1px solid rgba(129, 230, 217, 0.14);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 18, 0.48);
+}
+
+.achievement-badge.unlocked {
+    border-color: rgba(163, 230, 53, 0.52);
+    background: linear-gradient(150deg, rgba(22, 163, 74, 0.28), rgba(8, 19, 38, 0.62));
+}
+
+.achievement-badge.locked {
+    opacity: 0.78;
+}
+
+.achievement-badge span,
+.goal-meter span,
+.revision-log span {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.achievement-badge strong {
+    display: block;
+    margin: 11px 0 8px;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.16rem;
+}
+
+.achievement-badge small {
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.goal-form,
+.revision-settings {
+    display: grid;
+    gap: 12px;
+}
+
+.goal-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
+.goal-form label,
+.revision-settings label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.goal-form input,
+.revision-settings input,
+.revision-settings select {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(3, 7, 18, 0.72);
+    color: var(--text);
+    font: inherit;
+    font-weight: 800;
+    padding: 12px;
+}
+
+.goal-summary {
+    margin-top: 14px;
+}
+
+.goal-meter {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.goal-meter div,
+.goal-subject-list article,
+.revision-log article {
+    padding: 12px;
+    border: 1px solid rgba(129, 230, 217, 0.12);
+    border-radius: 8px;
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.goal-meter strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--cyan);
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.34rem;
+}
+
+.goal-progress {
+    height: 10px;
+    margin: 14px 0;
+    border-radius: 999px;
+    background: rgba(129, 230, 217, 0.12);
+    overflow: hidden;
+}
+
+.goal-progress div {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--cyan), var(--lime));
+}
+
+.goal-subject-list {
+    display: grid;
+    gap: 9px;
+}
+
+.goal-subject-list article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.goal-subject-list strong {
+    color: var(--lime);
+}
+
 .analysis-summary-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(150px, 1fr));
@@ -1584,6 +1726,71 @@ input[type="checkbox"] {
 .prediction-action > strong {
     color: var(--lime);
     white-space: nowrap;
+}
+
+.revision-timer-card {
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: radial-gradient(circle at 50% 34%, rgba(34, 211, 238, 0.22), rgba(8, 19, 38, 0.76) 48%, rgba(3, 7, 18, 0.72));
+    box-shadow: var(--shadow);
+}
+
+.revision-timer-card header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.revision-timer-ring {
+    display: grid;
+    place-items: center;
+    width: min(360px, 82vw);
+    aspect-ratio: 1;
+    margin: 24px auto;
+    border: 12px solid rgba(34, 211, 238, 0.18);
+    border-top-color: var(--cyan);
+    border-right-color: var(--lime);
+    border-radius: 50%;
+    background: rgba(3, 7, 18, 0.42);
+}
+
+.revision-timer-ring div {
+    display: grid;
+    gap: 8px;
+    text-align: center;
+}
+
+.revision-timer-ring span {
+    color: var(--text);
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: clamp(3.2rem, 8vw, 5.6rem);
+    font-weight: 900;
+    line-height: 1;
+}
+
+.revision-timer-ring small {
+    max-width: 220px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.revision-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.revision-log {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.revision-log article {
+    display: grid;
+    gap: 5px;
 }
 
 .metric-meta {
@@ -2663,8 +2870,14 @@ tbody tr:hover {
     .syllabus-hero,
     .syllabus-layout,
     .study-plan-summary,
+    .student-reward-layout,
+    .revision-layout,
     .model-grid {
         grid-template-columns: 1fr;
+    }
+
+    .badge-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .attendance-summary,
@@ -2761,6 +2974,8 @@ tbody tr:hover {
     .parent-metric-row,
     .intervention-checklist,
     .syllabus-hero,
+    .goal-form,
+    .revision-controls,
     .filter-panel {
         grid-template-columns: 1fr;
     }
@@ -2805,7 +3020,9 @@ tbody tr:hover {
     }
 
     .overview-analysis-grid,
-    .overview-brief-grid {
+    .overview-brief-grid,
+    .badge-grid,
+    .goal-meter {
         grid-template-columns: 1fr;
     }
 

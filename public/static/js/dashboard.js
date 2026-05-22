@@ -12,6 +12,11 @@
     let selectedAttendanceId = null;
     let parentInitialViewShown = false;
     let searchTimer = null;
+    let revisionInterval = null;
+    let revisionMode = "focus";
+    let revisionRemaining = 25 * 60;
+    let revisionRunning = false;
+    const syllabusReadinessCache = {};
 
     const numberFields = [
         "attendance",
@@ -96,6 +101,21 @@
         syllabusSubjectGrid: document.getElementById("syllabusSubjectGrid"),
         syllabusBoard: document.getElementById("syllabusBoard"),
         studyPlanGrid: document.getElementById("studyPlanGrid"),
+        achievementBadgeGrid: document.getElementById("achievementBadgeGrid"),
+        goalTrackerForm: document.getElementById("goalTrackerForm"),
+        goalTargetInput: document.getElementById("goalTargetInput"),
+        goalTrackerSummary: document.getElementById("goalTrackerSummary"),
+        revisionModeTitle: document.getElementById("revisionModeTitle"),
+        revisionSessionPill: document.getElementById("revisionSessionPill"),
+        revisionTimerLabel: document.getElementById("revisionTimerLabel"),
+        revisionTimerStatus: document.getElementById("revisionTimerStatus"),
+        revisionStartBtn: document.getElementById("revisionStartBtn"),
+        revisionPauseBtn: document.getElementById("revisionPauseBtn"),
+        revisionResetBtn: document.getElementById("revisionResetBtn"),
+        focusMinutesInput: document.getElementById("focusMinutesInput"),
+        breakMinutesInput: document.getElementById("breakMinutesInput"),
+        revisionSubjectSelect: document.getElementById("revisionSubjectSelect"),
+        revisionLog: document.getElementById("revisionLog"),
         smartSessionForm: document.getElementById("smartSessionForm"),
         teacherNoteForm: document.getElementById("teacherNoteForm"),
         smartSessionCount: document.getElementById("smartSessionCount"),
@@ -257,6 +277,218 @@
                 </article>
             `;
         }
+        renderStudentRewards(data);
+        renderGoalTracker(data);
+        setupRevisionSubjects(subjects);
+    }
+
+    function focusStudentFromData(data = {}) {
+        const focus = data.result_analysis?.focus_student || {};
+        return (data.students || []).find((student) => Number(student.id) === Number(focus.id)) || data.students?.[0] || {};
+    }
+
+    function storageStudentKey(prefix, data = dashboardData || {}) {
+        const focus = data.result_analysis?.focus_student || {};
+        return `${prefix}:${shell.dataset.username || role}:${focus.id || "focus"}`;
+    }
+
+    function getGoalTarget(data = dashboardData || {}) {
+        const saved = Number(localStorage.getItem(storageStudentKey("goal-target", data)));
+        return saved || 90;
+    }
+
+    function renderStudentRewards(data = dashboardData || {}) {
+        if (!elements.achievementBadgeGrid || !data) return;
+        const analysis = data.result_analysis || {};
+        const student = focusStudentFromData(data);
+        const subjects = analysis.subjects || [];
+        const math = subjects.find((item) => item.subject === "Mathematics");
+        const trend = analysis.trend_over_time || {};
+        const overall = trend.overall || [];
+        const trendDelta = overall.length ? Number(overall[overall.length - 1]) - Number(overall[0]) : 0;
+        const readiness = syllabusReadinessCache[analysis.focus_student?.id];
+        const badges = [
+            {
+                title: "Math Master",
+                detail: math ? `${math.student_mark}% in Mathematics` : "Math marks not available yet",
+                unlocked: Number(math?.student_mark || 0) >= 90,
+            },
+            {
+                title: "Attendance Hero",
+                detail: `${student.attendance ?? 0}% attendance`,
+                unlocked: Number(student.attendance || 0) >= 90,
+            },
+            {
+                title: "Comeback Student",
+                detail: `${trendDelta >= 0 ? "+" : ""}${trendDelta.toFixed(1)}% exam-cycle growth`,
+                unlocked: trendDelta >= 8,
+            },
+            {
+                title: "Syllabus Finisher",
+                detail: readiness == null ? "Checking syllabus readiness" : `${readiness}% test-ready`,
+                unlocked: Number(readiness || 0) >= 100,
+            },
+        ];
+        elements.achievementBadgeGrid.innerHTML = badges.map((badge) => `
+            <article class="achievement-badge ${badge.unlocked ? "unlocked" : "locked"}">
+                <span>${badge.unlocked ? "Unlocked" : "Locked"}</span>
+                <strong>${escapeHtml(badge.title)}</strong>
+                <small>${escapeHtml(badge.detail)}</small>
+            </article>
+        `).join("");
+        loadSyllabusReadiness(data);
+    }
+
+    async function loadSyllabusReadiness(data = dashboardData || {}) {
+        const studentId = data.result_analysis?.focus_student?.id;
+        if (!studentId || syllabusReadinessCache[studentId] !== undefined) return;
+        syllabusReadinessCache[studentId] = null;
+        try {
+            const syllabus = await fetchJson(`/api/syllabus/${studentId}`);
+            syllabusReadinessCache[studentId] = Number(syllabus.summary?.progress || 0);
+            renderStudentRewards(data);
+        } catch (error) {
+            syllabusReadinessCache[studentId] = 0;
+            renderStudentRewards(data);
+        }
+    }
+
+    function renderGoalTracker(data = dashboardData || {}) {
+        if (!elements.goalTrackerSummary || !data) return;
+        const analysis = data.result_analysis || {};
+        const subjects = analysis.subjects || [];
+        const summary = analysis.summary || [];
+        const current = Number((summary.find((item) => item.label === "Current Result") || {}).value || 0);
+        const target = getGoalTarget(data);
+        if (elements.goalTargetInput) elements.goalTargetInput.value = target;
+        const gap = Math.max(0, target - current);
+        const focusSubjects = subjects
+            .filter((item) => Number(item.student_mark) < target)
+            .sort((a, b) => Number(a.student_mark) - Number(b.student_mark))
+            .slice(0, 4);
+        elements.goalTrackerSummary.innerHTML = `
+            <div class="goal-meter">
+                <div><span>Current</span><strong>${escapeHtml(current)}%</strong></div>
+                <div><span>Target</span><strong>${escapeHtml(target)}%</strong></div>
+                <div><span>Needed</span><strong>${escapeHtml(gap.toFixed(1))}%</strong></div>
+            </div>
+            <div class="goal-progress"><div style="width: ${Math.min(100, current)}%"></div></div>
+            <div class="goal-subject-list">
+                ${focusSubjects.map((item) => `
+                    <article>
+                        <span>${escapeHtml(item.subject)}</span>
+                        <strong>+${escapeHtml(Math.max(0, target - Number(item.student_mark || 0)).toFixed(1))}%</strong>
+                    </article>
+                `).join("") || "<p class=\"muted\">Goal reached across all subjects. Push for topper-level consistency.</p>"}
+            </div>
+        `;
+    }
+
+    function setupRevisionSubjects(subjects = []) {
+        if (!elements.revisionSubjectSelect || elements.revisionSubjectSelect.dataset.ready) return;
+        const options = subjects.length ? subjects.map((item) => item.subject) : Object.values(subjectLabels);
+        elements.revisionSubjectSelect.innerHTML = options.map((subject) => `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`).join("");
+        elements.revisionSubjectSelect.dataset.ready = "true";
+    }
+
+    function revisionStorageKey() {
+        return `revision-sessions:${shell.dataset.username || role}`;
+    }
+
+    function revisionLogKey() {
+        return `revision-log:${shell.dataset.username || role}`;
+    }
+
+    function revisionCompletedCount() {
+        return Number(localStorage.getItem(revisionStorageKey()) || 0);
+    }
+
+    function setRevisionCompletedCount(value) {
+        localStorage.setItem(revisionStorageKey(), String(value));
+    }
+
+    function revisionDuration() {
+        const focusMinutes = Math.max(5, Math.min(90, Number(elements.focusMinutesInput?.value || 25)));
+        const breakMinutes = Math.max(1, Math.min(30, Number(elements.breakMinutesInput?.value || 5)));
+        return (revisionMode === "focus" ? focusMinutes : breakMinutes) * 60;
+    }
+
+    function formatRevisionTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    }
+
+    function renderRevisionTimer() {
+        if (!elements.revisionTimerLabel) return;
+        const completed = revisionCompletedCount();
+        elements.revisionModeTitle.textContent = revisionMode === "focus" ? "Study Focus" : "Recovery Break";
+        elements.revisionTimerLabel.textContent = formatRevisionTime(revisionRemaining);
+        elements.revisionSessionPill.textContent = `${completed} completed`;
+        elements.revisionTimerStatus.textContent = revisionRunning
+            ? `${revisionMode === "focus" ? "Studying" : "Break"}: ${elements.revisionSubjectSelect?.value || "selected subject"}`
+            : "Ready for a focused study sprint";
+        renderRevisionLog();
+    }
+
+    function renderRevisionLog() {
+        if (!elements.revisionLog) return;
+        const log = JSON.parse(localStorage.getItem(revisionLogKey()) || "[]").slice(-5).reverse();
+        elements.revisionLog.innerHTML = log.length ? log.map((item) => `
+            <article>
+                <strong>${escapeHtml(item.subject)}</strong>
+                <span>${escapeHtml(item.minutes)} min focus | ${escapeHtml(item.time)}</span>
+            </article>
+        `).join("") : `<p class="muted">Completed focus sessions will appear here.</p>`;
+    }
+
+    function completeRevisionCycle() {
+        if (revisionMode === "focus") {
+            const count = revisionCompletedCount() + 1;
+            setRevisionCompletedCount(count);
+            const log = JSON.parse(localStorage.getItem(revisionLogKey()) || "[]");
+            log.push({
+                subject: elements.revisionSubjectSelect?.value || "Revision",
+                minutes: Number(elements.focusMinutesInput?.value || 25),
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            });
+            localStorage.setItem(revisionLogKey(), JSON.stringify(log.slice(-20)));
+            revisionMode = "break";
+        } else {
+            revisionMode = "focus";
+        }
+        revisionRemaining = revisionDuration();
+        revisionRunning = false;
+        clearInterval(revisionInterval);
+        renderRevisionTimer();
+        window.showToast(revisionMode === "break" ? "Focus session completed. Take a break." : "Break completed. Ready for the next sprint.");
+    }
+
+    function startRevisionTimer() {
+        if (revisionRunning) return;
+        revisionRunning = true;
+        revisionInterval = setInterval(() => {
+            revisionRemaining -= 1;
+            if (revisionRemaining <= 0) {
+                revisionRemaining = 0;
+                completeRevisionCycle();
+                return;
+            }
+            renderRevisionTimer();
+        }, 1000);
+        renderRevisionTimer();
+    }
+
+    function pauseRevisionTimer() {
+        revisionRunning = false;
+        clearInterval(revisionInterval);
+        renderRevisionTimer();
+    }
+
+    function resetRevisionTimer() {
+        pauseRevisionTimer();
+        revisionRemaining = revisionDuration();
+        renderRevisionTimer();
     }
 
     function riskClass(risk) {
@@ -1776,6 +2008,19 @@
     elements.assistantToggle?.addEventListener("click", () => elements.assistantPanel?.classList.toggle("open"));
     elements.assistantClose?.addEventListener("click", () => elements.assistantPanel?.classList.remove("open"));
     elements.assistantForm?.addEventListener("submit", askAssistant);
+    elements.goalTrackerForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const target = Math.max(35, Math.min(100, Number(elements.goalTargetInput?.value || 90)));
+        localStorage.setItem(storageStudentKey("goal-target"), String(target));
+        renderGoalTracker(dashboardData);
+        window.showToast(`Final goal updated to ${target}%`);
+    });
+    elements.revisionStartBtn?.addEventListener("click", startRevisionTimer);
+    elements.revisionPauseBtn?.addEventListener("click", pauseRevisionTimer);
+    elements.revisionResetBtn?.addEventListener("click", resetRevisionTimer);
+    elements.focusMinutesInput?.addEventListener("change", resetRevisionTimer);
+    elements.breakMinutesInput?.addEventListener("change", resetRevisionTimer);
+    elements.revisionSubjectSelect?.addEventListener("change", renderRevisionTimer);
 
     elements.searchInput?.addEventListener("input", (event) => {
         clearTimeout(searchTimer);
@@ -1881,6 +2126,8 @@
 
     applyRoleVisibility();
     updateClock();
+    revisionRemaining = revisionDuration();
+    renderRevisionTimer();
     setInterval(updateClock, 1000);
     loadDashboard();
 })();

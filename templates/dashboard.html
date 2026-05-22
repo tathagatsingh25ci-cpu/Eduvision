@@ -31,6 +31,7 @@
             <a class="sidebar-link parent-only" href="#parent-portal" data-view="parent-portal"><span class="sidebar-icon">WD</span>Wards</a>
             <a class="sidebar-link" href="#attendance" data-view="attendance"><span class="sidebar-icon">AT</span>Attendance</a>
             <a class="sidebar-link" href="#syllabus" data-view="syllabus"><span class="sidebar-icon">SY</span>Syllabus</a>
+            <a class="sidebar-link" href="#revision" data-view="revision"><span class="sidebar-icon">RT</span>Revision Timer</a>
             <a class="sidebar-link parent-only" href="#parent-messages" data-view="parent-messages"><span class="sidebar-icon">PM</span>Messages</a>
             <a class="sidebar-link" href="#prediction" data-view="prediction"><span class="sidebar-icon">AI</span>Prediction</a>
             <a class="sidebar-link" href="#toppers" data-view="toppers"><span class="sidebar-icon">TP</span>Toppers</a>
@@ -85,6 +86,20 @@
                 </div>
                 <div class="stats-grid" id="statsGrid"></div>
                 <div class="overview-analysis-grid" id="overviewAnalysisGrid"></div>
+                <div class="student-reward-layout">
+                    <article class="chart-card">
+                        <header><h3>Achievement Badges</h3><span class="pill">Student rewards</span></header>
+                        <div class="badge-grid" id="achievementBadgeGrid"></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Personal Goal Tracker</h3><span class="pill">Final target</span></header>
+                        <form class="goal-form" id="goalTrackerForm">
+                            <label>I want <input id="goalTargetInput" type="number" min="35" max="100" step="1" value="90"> % in Final</label>
+                            <button class="btn" type="submit">Update Goal</button>
+                        </form>
+                        <div class="goal-summary" id="goalTrackerSummary"></div>
+                    </article>
+                </div>
                 <div class="chart-grid">
                     <article class="chart-card">
                         <header><h3>Subject Average</h3><span class="pill">Bar</span></header>
@@ -472,6 +487,45 @@
                     <header><h3>AI Weekly Study Plan</h3><span class="pill">Generated from risk + syllabus</span></header>
                     <div class="study-plan-grid" id="studyPlanGrid"></div>
                 </article>
+            </section>
+
+            <section class="view-section" id="view-revision">
+                <div class="section-head">
+                    <div><p class="eyebrow">Focused study sprint</p><h1>Smart Revision Timer</h1></div>
+                    <div class="chip-row">
+                        <span class="chip">25 min study</span>
+                        <span class="chip">5 min break</span>
+                        <span class="chip">Session tracker</span>
+                    </div>
+                </div>
+                <div class="revision-layout">
+                    <article class="revision-timer-card">
+                        <header>
+                            <h3 id="revisionModeTitle">Study Focus</h3>
+                            <span class="pill" id="revisionSessionPill">0 completed</span>
+                        </header>
+                        <div class="revision-timer-ring">
+                            <div>
+                                <span id="revisionTimerLabel">25:00</span>
+                                <small id="revisionTimerStatus">Ready for a focused study sprint</small>
+                            </div>
+                        </div>
+                        <div class="revision-controls">
+                            <button class="btn" id="revisionStartBtn" type="button">Start</button>
+                            <button class="btn secondary" id="revisionPauseBtn" type="button">Pause</button>
+                            <button class="btn secondary" id="revisionResetBtn" type="button">Reset</button>
+                        </div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Revision Setup</h3><span class="pill">Pomodoro</span></header>
+                        <div class="revision-settings">
+                            <label>Focus minutes <input id="focusMinutesInput" type="number" min="5" max="90" value="25"></label>
+                            <label>Break minutes <input id="breakMinutesInput" type="number" min="1" max="30" value="5"></label>
+                            <label>Today subject <select id="revisionSubjectSelect"></select></label>
+                        </div>
+                        <div class="revision-log" id="revisionLog"></div>
+                    </article>
+                </div>
             </section>
 
             <section class="view-section" id="view-prediction">

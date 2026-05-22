@@ -46,6 +46,8 @@
         loading: document.getElementById("loadingOverlay"),
         sidebar: document.getElementById("sidebar"),
         statsGrid: document.getElementById("statsGrid"),
+        overviewAnalysisGrid: document.getElementById("overviewAnalysisGrid"),
+        overviewBriefGrid: document.getElementById("overviewBriefGrid"),
         studentsBody: document.getElementById("studentsBody"),
         studentCount: document.getElementById("studentCount"),
         studentForm: document.getElementById("studentForm"),
@@ -205,6 +207,55 @@
         elements.statsGrid.querySelectorAll(".metric-value").forEach((node) => {
             animateNumber(node, node.dataset.value, node.dataset.suffix);
         });
+    }
+
+    function renderOverviewAnalysis(data) {
+        const analysis = data.result_analysis || {};
+        const summary = analysis.summary || [];
+        const subjects = analysis.subjects || [];
+        const insights = analysis.insights || [];
+        const getSummary = (label) => summary.find((item) => item.label === label) || {};
+        const focusSubjects = subjects
+            .slice()
+            .sort((a, b) => Number(b.gap_to_topper || 0) - Number(a.gap_to_topper || 0))
+            .slice(0, 3);
+        const strongSubjects = subjects
+            .slice()
+            .sort((a, b) => Number(b.student_mark || 0) - Number(a.student_mark || 0))
+            .slice(0, 3);
+
+        if (elements.overviewAnalysisGrid) {
+            const cards = [
+                ["Current Result", getSummary("Current Result").value ?? 0, getSummary("Current Result").suffix || "%", getSummary("Current Result").meta || "Live marks"],
+                ["Rank / Percentile", getSummary("Overall Rank").value ?? 0, getSummary("Overall Rank").suffix || "", getSummary("Overall Rank").meta || "Visible rank"],
+                ["Topper Gap", getSummary("Gap To Topper").value ?? 0, getSummary("Gap To Topper").suffix || "%", getSummary("Gap To Topper").meta || "Overall topper"],
+                ["Risk Signal", getSummary("Prediction Risk").value || "Low Risk", "", getSummary("Prediction Risk").meta || "AI prediction"],
+            ];
+            elements.overviewAnalysisGrid.innerHTML = cards.map(([label, value, suffix, meta]) => `
+                <article class="overview-analysis-card">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(value)}${escapeHtml(suffix)}</strong>
+                    <small>${escapeHtml(meta)}</small>
+                </article>
+            `).join("");
+        }
+
+        if (elements.overviewBriefGrid) {
+            elements.overviewBriefGrid.innerHTML = `
+                <article class="overview-brief-card">
+                    <h3>Top Strengths</h3>
+                    <p>${strongSubjects.map((item) => `${item.subject} ${item.student_mark}%`).join(", ") || "No subject data yet."}</p>
+                </article>
+                <article class="overview-brief-card">
+                    <h3>Topper Gap Focus</h3>
+                    <p>${focusSubjects.map((item) => `${item.subject} +${item.gap_to_topper}%`).join(", ") || "No gap data yet."}</p>
+                </article>
+                <article class="overview-brief-card">
+                    <h3>Benchmark Reading</h3>
+                    <p>${escapeHtml((insights.find((item) => item.title === "Benchmark Reading") || insights[0] || {}).text || "Analysis will appear after marks are available.")}</p>
+                </article>
+            `;
+        }
     }
 
     function riskClass(risk) {
@@ -1582,6 +1633,7 @@
         try {
             dashboardData = await fetchJson("/api/analytics/overview");
             renderStats(dashboardData.stats);
+            renderOverviewAnalysis(dashboardData);
             applyStudentFilters();
             renderCharts(dashboardData);
             renderHeatmap(dashboardData.heatmap);

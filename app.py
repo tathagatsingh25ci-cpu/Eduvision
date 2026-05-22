@@ -294,6 +294,20 @@ class SyllabusChapter(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class TeacherIntervention(db.Model):
+    __tablename__ = "teacher_interventions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    teacher_user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    contacted_student = db.Column(db.Boolean, default=False)
+    parent_informed = db.Column(db.Boolean, default=False)
+    extra_class_scheduled = db.Column(db.Boolean, default=False)
+    follow_up_needed = db.Column(db.Boolean, default=True)
+    note = db.Column(db.Text)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class MLModel:
     """Small ensemble used for demo-ready prediction without external services."""
 
@@ -1655,6 +1669,57 @@ def syllabus_payload(student):
         ],
         "study_plan": study_plan_payload(student, chapters),
     }
+
+
+def intervention_record(student):
+    record = TeacherIntervention.query.filter_by(student_id=student.id).first()
+    if not record:
+        record = TeacherIntervention(student_id=student.id, follow_up_needed=True)
+        db.session.add(record)
+        db.session.flush()
+        db.session.commit()
+    return record
+
+
+def intervention_payload(students=None):
+    students = students if students is not None else scoped_students().all()
+    rows = []
+    for student in students:
+        prediction = prediction_payload(student)
+        percentage = calculate_percentage(student)
+        if prediction["risk_level"] == "Low Risk" and percentage >= 50 and float(student.attendance or 0) >= 75:
+            continue
+        record = intervention_record(student)
+        steps_done = sum(
+            [
+                bool(record.contacted_student),
+                bool(record.parent_informed),
+                bool(record.extra_class_scheduled),
+                not bool(record.follow_up_needed),
+            ]
+        )
+        rows.append(
+            {
+                "id": record.id,
+                "student_id": student.id,
+                "student_name": student.name,
+                "roll_number": student.roll_number,
+                "class_name": student.class_name,
+                "section": student.section or "",
+                "percentage": percentage,
+                "attendance": round(float(student.attendance or 0), 1),
+                "risk_level": prediction["risk_level"],
+                "weak_subjects": prediction["weak_subjects"][:3],
+                "contacted_student": bool(record.contacted_student),
+                "parent_informed": bool(record.parent_informed),
+                "extra_class_scheduled": bool(record.extra_class_scheduled),
+                "follow_up_needed": bool(record.follow_up_needed),
+                "note": record.note or "",
+                "steps_done": steps_done,
+                "updated_at": record.updated_at.strftime("%d %b, %I:%M %p") if record.updated_at else "",
+            }
+        )
+    return sorted(rows, key=lambda item: (item["steps_done"], item["percentage"]))
 
 
 def refresh_all_student_records():
@@ -3078,6 +3143,7 @@ def analytics_overview():
             "smart_attendance": smart_attendance_payload(),
             "parent_messages": parent_messages_payload(students) if current_user().role == "parent" else [],
             "insights": insights_payload(students),
+            "interventions": intervention_payload(students) if current_user().role in {"admin", "teacher"} else [],
             "recent_activity": recent_activity_payload(students),
         }
     )
@@ -3113,6 +3179,33 @@ def train_model():
 @login_required
 def get_insights():
     return jsonify({"insights": insights_payload()})
+
+
+@app.route("/api/interventions")
+@roles_required("admin", "teacher")
+def get_interventions():
+    return jsonify({"interventions": intervention_payload(scoped_students().all())})
+
+
+@app.route("/api/interventions/<int:intervention_id>", methods=["PUT"])
+@roles_required("admin", "teacher")
+def update_intervention(intervention_id):
+    record = db.session.get(TeacherIntervention, intervention_id)
+    if not record:
+        return jsonify({"success": False, "message": "Intervention not found"}), 404
+    student = db.session.get(Student, record.student_id)
+    if not student or not can_view_student(student):
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+    data = request_payload()
+    for field in ["contacted_student", "parent_informed", "extra_class_scheduled", "follow_up_needed"]:
+        if field in data:
+            setattr(record, field, checkbox_enabled(data.get(field)))
+    if "note" in data:
+        record.note = get_text(data, "note")
+    record.teacher_user_id = current_user().id
+    record.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "interventions": intervention_payload(scoped_students().all())})
 
 
 @app.route("/api/export/excel")

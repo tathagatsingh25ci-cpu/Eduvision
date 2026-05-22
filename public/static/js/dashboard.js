@@ -66,6 +66,7 @@
         searchInput: document.getElementById("globalSearch"),
         searchResults: document.getElementById("searchResults"),
         insightGrid: document.getElementById("insightGrid"),
+        interventionGrid: document.getElementById("interventionGrid"),
         recentActivity: document.getElementById("recentActivity"),
         topperCards: document.getElementById("topperCards"),
         leaderboardList: document.getElementById("leaderboardList"),
@@ -443,6 +444,76 @@
                 <p class="lead">${escapeHtml(item.text)}</p>
             </article>
         `).join("");
+    }
+
+    function renderInterventions(items = []) {
+        if (!elements.interventionGrid) return;
+        if (!canManageStudents) {
+            elements.interventionGrid.innerHTML = "";
+            return;
+        }
+        elements.interventionGrid.innerHTML = items.length ? items.map((item) => `
+            <article class="intervention-card" data-intervention="${item.id}">
+                <div class="intervention-head">
+                    <div>
+                        <span class="pill ${riskClass(item.risk_level)}">${escapeHtml(item.risk_level)}</span>
+                        <h3>${escapeHtml(item.student_name)}</h3>
+                        <p class="message">${escapeHtml(item.roll_number)} | Class ${escapeHtml(item.class_name)}-${escapeHtml(item.section)} | ${escapeHtml(item.percentage)}% marks | ${escapeHtml(item.attendance)}% attendance</p>
+                    </div>
+                    <button class="btn secondary" type="button" data-open-student="${item.student_id}">Open</button>
+                </div>
+                <div class="tag-cloud">
+                    ${(item.weak_subjects || []).map((subject) => `<span class="pill warning">${escapeHtml(subject)}</span>`).join("") || `<span class="pill">No weak subject</span>`}
+                    <span class="pill">${escapeHtml(item.steps_done)}/4 complete</span>
+                </div>
+                <div class="intervention-checklist">
+                    <label class="check-row"><input type="checkbox" data-field="contacted_student" ${item.contacted_student ? "checked" : ""}> Contacted student</label>
+                    <label class="check-row"><input type="checkbox" data-field="parent_informed" ${item.parent_informed ? "checked" : ""}> Parent informed</label>
+                    <label class="check-row"><input type="checkbox" data-field="extra_class_scheduled" ${item.extra_class_scheduled ? "checked" : ""}> Extra class scheduled</label>
+                    <label class="check-row"><input type="checkbox" data-field="follow_up_needed" ${item.follow_up_needed ? "checked" : ""}> Follow-up needed</label>
+                </div>
+                <label>Teacher Note <textarea data-field="note" placeholder="Add intervention note">${escapeHtml(item.note)}</textarea></label>
+                <div class="intervention-foot">
+                    <span class="muted">Updated ${escapeHtml(item.updated_at || "just now")}</span>
+                    <button class="btn" type="button" data-save-intervention="${item.id}">Save Workflow</button>
+                </div>
+            </article>
+        `).join("") : `<p class="lead">No at-risk students need intervention right now.</p>`;
+
+        elements.interventionGrid.querySelectorAll("[data-open-student]").forEach((button) => {
+            button.addEventListener("click", () => selectStudent(button.dataset.openStudent, true));
+        });
+        elements.interventionGrid.querySelectorAll("[data-save-intervention]").forEach((button) => {
+            button.addEventListener("click", () => saveIntervention(button.dataset.saveIntervention));
+        });
+    }
+
+    async function saveIntervention(id) {
+        const card = elements.interventionGrid?.querySelector(`[data-intervention="${id}"]`);
+        if (!card) return;
+        const payload = {};
+        card.querySelectorAll("[data-field]").forEach((field) => {
+            if (field.type === "checkbox") {
+                payload[field.dataset.field] = field.checked;
+            } else {
+                payload[field.dataset.field] = field.value;
+            }
+        });
+        try {
+            showLoading(true);
+            const data = await fetchJson(`/api/interventions/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            dashboardData.interventions = data.interventions || [];
+            renderInterventions(dashboardData.interventions);
+            window.showToast("Intervention workflow saved");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
     }
 
     function renderRecentActivity(items) {
@@ -1432,6 +1503,7 @@
             renderCharts(dashboardData);
             renderHeatmap(dashboardData.heatmap);
             renderInsights(dashboardData.insights);
+            renderInterventions(dashboardData.interventions || []);
             renderRecentActivity(dashboardData.recent_activity);
             renderToppers(dashboardData.toppers);
             renderAttendancePortal(dashboardData.attendance_portal);

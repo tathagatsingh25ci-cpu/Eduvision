@@ -394,12 +394,13 @@
                         <header><h3>Selected Profile</h3></header>
                         <p class="lead">Select a student from the table or search results.</p>
                     </article>
-                    <article class="chart-card">
-                        <header><h3>Subject Performance</h3></header>
-                        <div class="chart-wrap"><canvas id="profileChart"></canvas></div>
+                    <article class="chart-card prediction-chart-card">
+                        <header><h3>AI Subject Signal Map</h3><span class="pill">Live marks</span></header>
+                        <div class="chart-wrap sm"><canvas id="profileChart"></canvas></div>
+                        <p class="message">The chart highlights score balance across subjects. Large gaps increase prediction volatility.</p>
                     </article>
                 </div>
-                <div class="model-grid">
+                <div class="model-grid" id="predictionModelGrid">
                     <article class="model-card"><span>Linear Regression</span><strong>Percentage Forecast</strong></article>
                     <article class="model-card"><span>Decision Tree</span><strong>Category Signal</strong></article>
                     <article class="model-card"><span>Random Forest</span><strong>Risk Stabilization</strong></article>

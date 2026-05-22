@@ -1048,6 +1048,134 @@ def recommendations_for_student(student, predicted_percentage, strong_subjects, 
     return recommendations
 
 
+def prediction_deep_dive(student, predicted_percentage, confidence, improvement_signal, risk_level, strong_subjects, weak_subjects):
+    current_percentage = calculate_percentage(student)
+    attendance = round(float(student.attendance or 0), 1)
+    internal = round(float(student.internal_marks or 0), 1)
+    semester = round(float(student.semester_marks or 0), 1)
+    subject_rows = student_subject_breakdown(student)
+    lowest_subjects = subject_rows[:3]
+    highest_subjects = list(reversed(subject_rows))[:3]
+    avg_top = round(sum(row["marks"] for row in highest_subjects) / max(1, len(highest_subjects)), 1)
+    avg_low = round(sum(row["marks"] for row in lowest_subjects) / max(1, len(lowest_subjects)), 1)
+    subject_gap = round(max(0, avg_top - avg_low), 1)
+    consistency = round(clamp(100 - subject_gap, 0, 100), 1)
+    momentum = round(clamp(predicted_percentage - current_percentage, -12, 12), 1)
+    intervention_gain = round(clamp((100 - avg_low) * 0.08 + max(0, 75 - attendance) * 0.05 + 2.4, 1.5, 9.5), 1)
+    stretch_gain = round(clamp(intervention_gain + len(highest_subjects) * 0.7, 3, 12), 1)
+    safe_floor = round(clamp(predicted_percentage - (100 - confidence) * 0.18 - subject_gap * 0.04, 0, 100), 1)
+    likely_ceiling = round(clamp(predicted_percentage + intervention_gain, 0, 100), 1)
+    stretch_ceiling = round(clamp(predicted_percentage + stretch_gain, 0, 100), 1)
+    focus_names = [row["subject"] for row in lowest_subjects]
+    topper_gap = round(max(0, 90 - predicted_percentage), 1)
+
+    if predicted_percentage >= 90:
+        verdict = "Elite trajectory"
+        verdict_detail = "The model sees a very strong final-result path. The main job is protecting consistency and avoiding careless score drops."
+    elif predicted_percentage >= 75:
+        verdict = "High-confidence growth path"
+        verdict_detail = "The model expects a strong result. A focused push on the lowest subjects can move this from good to excellent."
+    elif predicted_percentage >= 60:
+        verdict = "Recoverable improvement zone"
+        verdict_detail = "The model sees pass strength, but the score can swing based on attendance and weak-subject revision quality."
+    else:
+        verdict = "Intervention needed"
+        verdict_detail = "The model sees academic risk. A short daily recovery plan should start immediately."
+
+    risk_factors = [
+        {
+            "label": "Attendance Stability",
+            "value": attendance,
+            "tone": "success" if attendance >= 85 else "warning" if attendance >= 75 else "danger",
+            "text": "Attendance supports the prediction." if attendance >= 85 else "Attendance can drag down final performance if it slips further.",
+        },
+        {
+            "label": "Subject Consistency",
+            "value": consistency,
+            "tone": "success" if consistency >= 82 else "warning" if consistency >= 68 else "danger",
+            "text": f"Gap between top and focus subjects is {subject_gap} points.",
+        },
+        {
+            "label": "Assessment Momentum",
+            "value": round((internal + semester) / 2, 1),
+            "tone": "success" if (internal + semester) / 2 >= current_percentage else "warning",
+            "text": "Internal and semester signals are supporting the forecast." if (internal + semester) / 2 >= current_percentage else "Assessment scores are below the subject average.",
+        },
+    ]
+
+    confidence_breakdown = [
+        {"label": "Model confidence", "value": round(confidence, 1), "text": f"Trained on {ml_model.training_size} student records plus fallback heuristics."},
+        {"label": "Current score signal", "value": round(current_percentage, 1), "text": "Subject average used as the strongest baseline."},
+        {"label": "Improvement chance", "value": round(improvement_signal, 1), "text": "Chance of improving if focus subjects get targeted revision."},
+    ]
+
+    scenario_forecast = [
+        {"label": "Safe floor", "value": safe_floor, "text": "Likely result if revision stays average and weak areas are only maintained."},
+        {"label": "Expected", "value": round(predicted_percentage, 1), "text": "Main ensemble forecast from current marks, attendance, and assessment signals."},
+        {"label": "With focus plan", "value": likely_ceiling, "text": f"Possible if {', '.join(focus_names[:2])} get consistent practice."},
+        {"label": "Stretch target", "value": stretch_ceiling, "text": "Possible with high-quality revision and stable attendance."},
+    ]
+
+    action_plan = [
+        {
+            "title": f"Fix {focus_names[0]} first",
+            "impact": f"+{round(intervention_gain * 0.42, 1)}%",
+            "text": "Spend 35 minutes daily on mistakes, formulas, and one timed mini-test until the score stabilizes.",
+        },
+        {
+            "title": "Protect attendance",
+            "impact": "+1.5%",
+            "text": "Keep attendance above 85% so the prediction remains stable and exam readiness does not drop.",
+        },
+        {
+            "title": "Use strongest subjects",
+            "impact": f"+{round(stretch_gain * 0.25, 1)}%",
+            "text": f"Use {', '.join([row['subject'] for row in highest_subjects[:2]])} as confidence anchors and peer-learning material.",
+        },
+        {
+            "title": "Weekly prediction check",
+            "impact": "risk down",
+            "text": "Update marks after every test and retrain the model so the forecast reflects the latest trend.",
+        },
+    ]
+
+    model_cards = [
+        {
+            "name": "Linear Regression",
+            "signal": f"{round(predicted_percentage, 1)}% forecast",
+            "text": "Reads the score trend and estimates the final percentage from marks, attendance, and assessments.",
+        },
+        {
+            "name": "Decision Tree",
+            "signal": category_from_score(predicted_percentage),
+            "text": "Classifies the performance band using threshold-style academic signals.",
+        },
+        {
+            "name": "Random Forest",
+            "signal": risk_level,
+            "text": "Stabilizes pass/fail and risk judgement across multiple decision paths.",
+        },
+    ]
+
+    return {
+        "verdict": verdict,
+        "verdict_detail": verdict_detail,
+        "momentum": momentum,
+        "topper_gap": topper_gap,
+        "focus_subjects": focus_names,
+        "highest_subjects": [row["subject"] for row in highest_subjects],
+        "risk_factors": risk_factors,
+        "confidence_breakdown": confidence_breakdown,
+        "scenario_forecast": scenario_forecast,
+        "action_plan": action_plan,
+        "model_cards": model_cards,
+    }
+
+
+def category_from_score(score):
+    return get_performance_category(score)[0]
+
+
 def prediction_payload(student):
     features = feature_vector(student)
     fallback = heuristic_prediction(student)
@@ -1077,18 +1205,22 @@ def prediction_payload(student):
         - len(weak) * 3.2
     )
     recommendations = recommendations_for_student(student, predicted_percentage, strong, weak)
+    confidence = round(clamp(confidence, 68, 97), 1)
+    improvement_signal = round(clamp(improvement_signal, 8, 98), 1)
+    deep_dive = prediction_deep_dive(student, predicted_percentage, confidence, improvement_signal, risk_level, strong, weak)
     return {
         "predicted_percentage": round(predicted_percentage, 2),
         "category": category,
         "pass_fail": "Pass" if predicted_percentage >= 40 else "Fail",
         "risk_level": risk_level,
-        "confidence": round(clamp(confidence, 68, 97), 1),
-        "improvement_chance": round(clamp(improvement_signal, 8, 98), 1),
+        "confidence": confidence,
+        "improvement_chance": improvement_signal,
         "current_percentage": current_percentage,
         "recommendations": recommendations,
         "strong_subjects": strong,
         "weak_subjects": weak,
         "expected_final_result": round(predicted_percentage, 2),
+        "deep_dive": deep_dive,
         "models": {
             "linear_regression": "Expected percentage",
             "decision_tree": "Performance category signal",

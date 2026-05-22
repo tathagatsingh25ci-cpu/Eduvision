@@ -99,6 +99,7 @@
         parentAlertGrid: document.getElementById("parentAlertGrid"),
         reportPdfLink: document.getElementById("reportPdfLink"),
         selectedPdfLink: document.getElementById("selectedPdfLink"),
+        predictionModelGrid: document.getElementById("predictionModelGrid"),
         usersBody: document.getElementById("usersBody"),
         userCount: document.getElementById("userCount"),
     };
@@ -1026,6 +1027,7 @@
     function renderProfile(student) {
         selectedStudent = student;
         const prediction = student.prediction;
+        const deepDive = prediction.deep_dive || {};
         const pdfUrl = `/api/report/pdf/${student.id}`;
         elements.reportPdfLink.href = pdfUrl;
         elements.selectedPdfLink.href = pdfUrl;
@@ -1039,40 +1041,103 @@
             </div>
         `).join("");
 
-        elements.profile.innerHTML = `
-            <header>
+        const scenarioCards = (deepDive.scenario_forecast || []).map((item) => `
+            <article class="prediction-mini-card">
+                <span>${escapeHtml(item.label)}</span>
+                <strong>${escapeHtml(item.value)}%</strong>
+                <p>${escapeHtml(item.text)}</p>
+            </article>
+        `).join("");
+
+        const riskCards = (deepDive.risk_factors || []).map((item) => `
+            <article class="prediction-factor ${escapeHtml(item.tone || "")}">
                 <div>
-                    <p class="eyebrow">Rank #${escapeHtml(student.rank)}</p>
+                    <span>${escapeHtml(item.label)}</span>
+                    <strong>${escapeHtml(item.value)}%</strong>
+                </div>
+                <p>${escapeHtml(item.text)}</p>
+            </article>
+        `).join("");
+
+        const confidenceRows = (deepDive.confidence_breakdown || []).map((item) => `
+            <div>
+                <span>${escapeHtml(item.label)}</span>
+                <strong>${escapeHtml(item.value)}%</strong>
+                <small>${escapeHtml(item.text)}</small>
+            </div>
+        `).join("");
+
+        const actionPlan = (deepDive.action_plan || []).map((item, index) => `
+            <article class="prediction-action">
+                <span>${String(index + 1).padStart(2, "0")}</span>
+                <div>
+                    <h4>${escapeHtml(item.title)}</h4>
+                    <p>${escapeHtml(item.text)}</p>
+                </div>
+                <strong>${escapeHtml(item.impact)}</strong>
+            </article>
+        `).join("");
+
+        elements.profile.innerHTML = `
+            <div class="prediction-hero">
+                <div>
+                    <p class="eyebrow">AI forecast | Rank #${escapeHtml(student.rank)}</p>
                     <h3>${escapeHtml(student.name)}</h3>
+                    <p class="lead">${escapeHtml(deepDive.verdict_detail || "The model is reading marks, attendance, assessment scores, and subject balance.")}</p>
                 </div>
-                <span class="pill">${escapeHtml(prediction.risk_level)}</span>
-            </header>
-            <div class="details-list">
-                <div><span>Roll Number</span><strong>${escapeHtml(student.roll_number)}</strong></div>
-                <div><span>Class</span><strong>${escapeHtml(student.class_name)}-${escapeHtml(student.section || "")}</strong></div>
-                <div><span>Stream</span><strong>${escapeHtml(student.stream || "")}</strong></div>
-                <div><span>Current Percentage</span><strong>${escapeHtml(student.percentage)}%</strong></div>
-                <div><span>Expected Final Result</span><strong>${escapeHtml(prediction.expected_final_result)}%</strong></div>
-                <div><span>Improvement Chance</span><strong>${escapeHtml(prediction.improvement_chance)}%</strong></div>
-                <div><span>Pass/Fail</span><strong>${escapeHtml(prediction.pass_fail)}</strong></div>
-            </div>
-            <div style="margin: 18px 0;">
-                <span class="metric-label">AI Confidence</span>
-                <div class="progress" style="margin-top: 8px;"><div class="progress-fill" style="width: ${prediction.confidence}%"></div></div>
-                <p class="message">${escapeHtml(prediction.confidence)}%</p>
-            </div>
-            <div class="tag-cloud">
-                <span class="pill success">Strong: ${escapeHtml(student.strong_subjects.join(", ") || "Building")}</span>
-                <span class="pill warning">Focus: ${escapeHtml(student.weak_subjects.join(", ") || "None")}</span>
-            </div>
-            <div class="subject-grid">${subjectChips}</div>
-            <div style="margin-top: 18px;">
-                <h3>Recommendations</h3>
-                <div class="insight-grid">
-                    ${prediction.recommendations.map((item) => `<div class="insight-card">${escapeHtml(item)}</div>`).join("")}
+                <div class="prediction-score">
+                    <span>${escapeHtml(deepDive.verdict || prediction.category)}</span>
+                    <strong>${escapeHtml(prediction.expected_final_result)}%</strong>
+                    <small>${escapeHtml(prediction.risk_level)} | ${escapeHtml(prediction.pass_fail)}</small>
                 </div>
+            </div>
+
+            <div class="prediction-kpi-grid">
+                <div><span>Current</span><strong>${escapeHtml(student.percentage)}%</strong><small>live average</small></div>
+                <div><span>AI Confidence</span><strong>${escapeHtml(prediction.confidence)}%</strong><small>ensemble trust</small></div>
+                <div><span>Improvement</span><strong>${escapeHtml(prediction.improvement_chance)}%</strong><small>growth chance</small></div>
+                <div><span>Topper Gap</span><strong>${escapeHtml(deepDive.topper_gap ?? 0)}%</strong><small>to 90%</small></div>
+            </div>
+
+            <div class="prediction-section">
+                <h3>Scenario Forecast</h3>
+                <div class="prediction-scenario-grid">${scenarioCards}</div>
+            </div>
+
+            <div class="prediction-section">
+                <h3>Risk Intelligence</h3>
+                <div class="prediction-factor-grid">${riskCards}</div>
+            </div>
+
+            <div class="prediction-section">
+                <h3>Confidence Breakdown</h3>
+                <div class="prediction-confidence-list">${confidenceRows}</div>
+            </div>
+
+            <div class="prediction-section">
+                <h3>Action Plan</h3>
+                <div class="prediction-action-list">${actionPlan}</div>
+            </div>
+
+            <div class="prediction-section">
+                <h3>Subject Signals</h3>
+                <div class="tag-cloud">
+                    <span class="pill success">Strong: ${escapeHtml((deepDive.highest_subjects || student.strong_subjects || []).join(", ") || "Building")}</span>
+                    <span class="pill warning">Focus: ${escapeHtml((deepDive.focus_subjects || student.weak_subjects || []).join(", ") || "None")}</span>
+                </div>
+                <div class="subject-grid">${subjectChips}</div>
             </div>
         `;
+
+        if (elements.predictionModelGrid) {
+            elements.predictionModelGrid.innerHTML = (deepDive.model_cards || []).map((model) => `
+                <article class="model-card">
+                    <span>${escapeHtml(model.name)}</span>
+                    <strong>${escapeHtml(model.signal)}</strong>
+                    <p>${escapeHtml(model.text)}</p>
+                </article>
+            `).join("");
+        }
 
         renderChart("profile", "profileChart", {
             type: "bar",
@@ -1087,7 +1152,16 @@
                     borderRadius: 8,
                 }],
             },
-            options: baseChartOptions(),
+            options: baseChartOptions({
+                indexAxis: "y",
+                plugins: {
+                    legend: { display: false },
+                },
+                scales: {
+                    x: { min: 0, max: 100, ticks: { color: "#8fa8bd" }, grid: { color: "rgba(143,168,189,0.1)" } },
+                    y: { ticks: { color: "#8fa8bd" }, grid: { color: "rgba(143,168,189,0.06)" } },
+                },
+            }),
         });
     }
 

@@ -828,6 +828,89 @@ def smart_attendance_payload():
     }
 
 
+def notification_payload(students=None):
+    students = students if students is not None else scoped_students().all()
+    notifications = []
+    today = datetime.utcnow().date()
+
+    for student in students:
+        prediction = prediction_payload(student)
+        if prediction["risk_level"] != "Low Risk":
+            notifications.append(
+                {
+                    "type": "prediction",
+                    "tone": "danger" if prediction["risk_level"] == "High Risk" else "warning",
+                    "title": "Prediction risk changed",
+                    "text": f"{student.name} is marked {prediction['risk_level']} with {prediction['predicted_percentage']}% predicted.",
+                    "meta": f"Roll {student.roll_number}",
+                    "student_id": student.id,
+                }
+            )
+
+        if float(student.attendance or 0) < 75:
+            notifications.append(
+                {
+                    "type": "attendance",
+                    "tone": "danger",
+                    "title": "Attendance below 75%",
+                    "text": f"{student.name} is at {float(student.attendance or 0):.1f}% attendance.",
+                    "meta": "Attendance intervention needed",
+                    "student_id": student.id,
+                }
+            )
+
+        ensure_syllabus_chapters(student)
+        upcoming = (
+            SyllabusChapter.query.filter_by(student_id=student.id)
+            .filter(SyllabusChapter.exam_date.isnot(None))
+            .order_by(SyllabusChapter.exam_date.asc())
+            .limit(8)
+            .all()
+        )
+        for chapter in upcoming:
+            days_left = (chapter.exam_date - today).days
+            if 0 <= days_left <= 7:
+                notifications.append(
+                    {
+                        "type": "exam",
+                        "tone": "warning" if days_left <= 3 else "info",
+                        "title": "Exam coming soon",
+                        "text": f"{chapter.subject}: {chapter.chapter} is in {days_left} day{'s' if days_left != 1 else ''}.",
+                        "meta": chapter.exam_date.strftime("%d %b %Y"),
+                        "student_id": student.id,
+                    }
+                )
+            if days_left <= 10 and chapter.status == "Not started":
+                notifications.append(
+                    {
+                        "type": "syllabus",
+                        "tone": "warning",
+                        "title": "Chapter not started",
+                        "text": f"{student.name} has not started {chapter.chapter} in {chapter.subject}.",
+                        "meta": f"{max(days_left, 0)} days to exam",
+                        "student_id": student.id,
+                    }
+                )
+
+    class_pairs = {(student.class_name, student.section or "A") for student in students}
+    notes = TeacherNote.query.order_by(TeacherNote.created_at.desc()).limit(10).all()
+    for note in notes:
+        if (note.class_name, note.section or "A") in class_pairs:
+            notifications.append(
+                {
+                    "type": "notes",
+                    "tone": "success",
+                    "title": "New teacher note uploaded",
+                    "text": f"{note.title} for {note.subject}.",
+                    "meta": note.created_at.strftime("%d %b, %I:%M %p"),
+                    "student_id": None,
+                }
+            )
+
+    tone_order = {"danger": 0, "warning": 1, "info": 2, "success": 3}
+    return sorted(notifications, key=lambda item: (tone_order.get(item["tone"], 4), item["title"]))[:30]
+
+
 def student_subject_breakdown(student):
     rows = [
         {
@@ -3144,6 +3227,7 @@ def analytics_overview():
             "parent_messages": parent_messages_payload(students) if current_user().role == "parent" else [],
             "insights": insights_payload(students),
             "interventions": intervention_payload(students) if current_user().role in {"admin", "teacher"} else [],
+            "notifications": notification_payload(students),
             "recent_activity": recent_activity_payload(students),
         }
     )

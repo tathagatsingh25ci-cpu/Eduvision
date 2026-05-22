@@ -100,6 +100,11 @@
         assistantForm: document.getElementById("assistantForm"),
         assistantInput: document.getElementById("assistantInput"),
         assistantMessages: document.getElementById("assistantMessages"),
+        notificationToggle: document.getElementById("notificationToggle"),
+        notificationClose: document.getElementById("notificationClose"),
+        notificationPanel: document.getElementById("notificationPanel"),
+        notificationCount: document.getElementById("notificationCount"),
+        notificationList: document.getElementById("notificationList"),
         parentLookupForm: document.getElementById("parentStudentLookupForm"),
         parentLookupInput: document.getElementById("parentStudentLookupInput"),
         parentLookupResults: document.getElementById("parentLookupResults"),
@@ -485,6 +490,27 @@
         });
         elements.interventionGrid.querySelectorAll("[data-save-intervention]").forEach((button) => {
             button.addEventListener("click", () => saveIntervention(button.dataset.saveIntervention));
+        });
+    }
+
+    function renderNotifications(items = []) {
+        if (!elements.notificationList) return;
+        const urgentCount = items.filter((item) => item.tone === "danger" || item.tone === "warning").length;
+        if (elements.notificationCount) elements.notificationCount.textContent = String(urgentCount || items.length || 0);
+        elements.notificationList.innerHTML = items.length ? items.map((item) => `
+            <button class="notification-item ${escapeHtml(item.tone || "")}" type="button" ${item.student_id ? `data-notification-student="${item.student_id}"` : ""}>
+                <span class="pill ${escapeHtml(item.tone || "")}">${escapeHtml(item.type || "alert")}</span>
+                <strong>${escapeHtml(item.title)}</strong>
+                <p>${escapeHtml(item.text)}</p>
+                <small>${escapeHtml(item.meta || "")}</small>
+            </button>
+        `).join("") : `<p class="message">No urgent alerts right now.</p>`;
+
+        elements.notificationList.querySelectorAll("[data-notification-student]").forEach((button) => {
+            button.addEventListener("click", () => {
+                elements.notificationPanel?.classList.remove("open");
+                selectStudent(button.dataset.notificationStudent, true);
+            });
         });
     }
 
@@ -1504,6 +1530,7 @@
             renderHeatmap(dashboardData.heatmap);
             renderInsights(dashboardData.insights);
             renderInterventions(dashboardData.interventions || []);
+            renderNotifications(dashboardData.notifications || []);
             renderRecentActivity(dashboardData.recent_activity);
             renderToppers(dashboardData.toppers);
             renderAttendancePortal(dashboardData.attendance_portal);
@@ -1562,6 +1589,8 @@
             showLoading(false);
         }
     });
+    elements.notificationToggle?.addEventListener("click", () => elements.notificationPanel?.classList.toggle("open"));
+    elements.notificationClose?.addEventListener("click", () => elements.notificationPanel?.classList.remove("open"));
     elements.assistantToggle?.addEventListener("click", () => elements.assistantPanel?.classList.toggle("open"));
     elements.assistantClose?.addEventListener("click", () => elements.assistantPanel?.classList.remove("open"));
     elements.assistantForm?.addEventListener("submit", askAssistant);

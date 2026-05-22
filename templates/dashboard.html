@@ -56,6 +56,15 @@
             </div>
             <div class="topbar-right">
                 <span class="pill" id="liveClock">--:--</span>
+                <div class="notification-center" id="notificationCenter">
+                    <button class="btn secondary notification-toggle" id="notificationToggle" type="button" aria-label="Open notifications">
+                        Bell <span id="notificationCount">0</span>
+                    </button>
+                    <div class="notification-panel" id="notificationPanel">
+                        <header><h3>Notifications</h3><button class="icon-button" id="notificationClose" type="button">X</button></header>
+                        <div class="notification-list" id="notificationList"></div>
+                    </div>
+                </div>
                 <button class="btn secondary admin-only teacher-only" id="trainModelBtn" type="button">Train ML</button>
                 <a class="btn secondary admin-only teacher-only" href="{{ url_for('export_excel') }}">Export Excel</a>
             </div>

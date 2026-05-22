@@ -3154,14 +3154,45 @@ def generate_pdf(student_id):
     percentage = calculate_percentage(student)
     category, _ = get_performance_category(percentage)
     prediction = prediction_payload(student)
+    deep_dive = prediction.get("deep_dive", {})
+    syllabus = syllabus_payload(student)
+    syllabus_summary = syllabus.get("summary", {})
+    study_plan = syllabus.get("study_plan", {})
     strong, weak = get_strong_weak_subjects(student)
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="SmallMuted", parent=styles["Normal"], textColor=colors.HexColor("#4f5f6f"), fontSize=8))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], textColor=colors.HexColor("#061528"), spaceBefore=10, spaceAfter=6))
+    styles.add(ParagraphStyle(name="BoxText", parent=styles["Normal"], fontSize=9, leading=12))
     story = []
 
-    story.append(Paragraph("EduVision AI - Performance Report", styles["Title"]))
+    def clean(value):
+        return str(value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def styled_table(rows, widths, header=True):
+        table = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+        commands = [
+            ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#d5dde8")),
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]
+        if header:
+            commands.extend(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#061528")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ]
+            )
+        table.setStyle(TableStyle(commands))
+        return table
+
+    story.append(Paragraph("EduVision AI - Premium Performance Report", styles["Title"]))
     story.append(Paragraph(f"{student.name} | Roll No: {student.roll_number}", styles["Heading2"]))
     story.append(Paragraph(datetime.utcnow().strftime("Generated on %d %b %Y, %I:%M %p UTC"), styles["SmallMuted"]))
     story.append(Spacer(1, 12))
@@ -3188,9 +3219,69 @@ def generate_pdf(student_id):
     story.append(info_table)
     story.append(Spacer(1, 14))
 
+    verdict = clean(deep_dive.get("verdict", prediction["category"]))
+    verdict_detail = clean(deep_dive.get("verdict_detail", "AI prediction is based on marks, attendance, assessment scores, and syllabus readiness."))
+    parent_summary = (
+        f"{student.name} is currently at {percentage:.1f}% with a predicted result of {prediction['predicted_percentage']:.1f}%. "
+        f"The AI verdict is {verdict}. "
+        f"Strong subjects: {', '.join(strong[:3]) if strong else 'still building'}. "
+        f"Focus subjects: {', '.join((weak or deep_dive.get('focus_subjects') or [])[:3]) if (weak or deep_dive.get('focus_subjects')) else 'maintain all subjects'}. "
+        f"Syllabus readiness is {syllabus_summary.get('progress', 0)}%."
+    )
+    story.append(Paragraph("AI Verdict", styles["SectionTitle"]))
+    verdict_rows = [
+        ["Verdict", "Risk", "Confidence", "Improvement Chance"],
+        [verdict, prediction["risk_level"], f"{prediction['confidence']}%", f"{prediction['improvement_chance']}%"],
+    ]
+    story.append(styled_table(verdict_rows, [180, 100, 100, 130]))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(verdict_detail, styles["BoxText"]))
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("Parent Summary", styles["SectionTitle"]))
+    story.append(Paragraph(clean(parent_summary), styles["BoxText"]))
+    story.append(Spacer(1, 10))
+
     chart_buffer = chart_image_for_student(student)
     story.append(ReportImage(chart_buffer, width=500, height=214))
     story.append(Spacer(1, 14))
+
+    story.append(Paragraph("Prediction Deep Dive", styles["SectionTitle"]))
+    scenario_rows = [["Scenario", "Forecast", "Meaning"]]
+    for item in deep_dive.get("scenario_forecast", []):
+        scenario_rows.append([clean(item.get("label")), f"{item.get('value')}%", clean(item.get("text"))])
+    if len(scenario_rows) > 1:
+        story.append(styled_table(scenario_rows, [110, 80, 320]))
+        story.append(Spacer(1, 8))
+
+    risk_rows = [["Signal", "Value", "AI Reading"]]
+    for item in deep_dive.get("risk_factors", []):
+        risk_rows.append([clean(item.get("label")), f"{item.get('value')}%", clean(item.get("text"))])
+    if len(risk_rows) > 1:
+        story.append(styled_table(risk_rows, [130, 80, 300]))
+        story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Exam Countdown + Syllabus Readiness", styles["SectionTitle"]))
+    days_left = syllabus_summary.get("days_left")
+    days_text = "No exam date" if days_left is None else f"{days_left} days left"
+    syllabus_rows = [
+        ["Next Exam", "Chapter", "Date", "Countdown", "Readiness"],
+        [
+            clean(syllabus_summary.get("next_exam_subject")),
+            clean(syllabus_summary.get("next_exam_chapter")),
+            clean(syllabus_summary.get("next_exam_date")),
+            days_text,
+            f"{syllabus_summary.get('progress', 0)}%",
+        ],
+    ]
+    story.append(styled_table(syllabus_rows, [105, 130, 90, 85, 90]))
+    story.append(Spacer(1, 8))
+
+    subject_ready_rows = [["Subject", "Progress", "Test-ready", "Revised"]]
+    for item in syllabus.get("subjects", [])[:8]:
+        subject_ready_rows.append([clean(item.get("subject")), f"{item.get('progress')}%", item.get("ready"), item.get("revised")])
+    story.append(styled_table(subject_ready_rows, [190, 90, 90, 90]))
+    story.append(Spacer(1, 12))
 
     subject_rows = [["Subject", "Marks", "Status"]]
     for field, label in SUBJECT_LABELS.items():
@@ -3217,6 +3308,19 @@ def generate_pdf(student_id):
     story.append(Paragraph("<b>AI Recommendations:</b>", styles["Heading3"]))
     for recommendation in prediction["recommendations"]:
         story.append(Paragraph(f"- {recommendation}", styles["Normal"]))
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Study Action Plan", styles["SectionTitle"]))
+    strategy = study_plan.get("strategy", [])
+    for item in strategy:
+        story.append(Paragraph(f"- {clean(item)}", styles["Normal"]))
+    story.append(Spacer(1, 8))
+    plan_rows = [["Day", "Focus", "Target", "Main Sessions"]]
+    for day in study_plan.get("days", [])[:7]:
+        sessions = "; ".join(f"{session.get('title')} ({session.get('duration')})" for session in day.get("sessions", [])[:3])
+        plan_rows.append([clean(day.get("day")), clean(day.get("focus")), f"{day.get('target_hours')}h", clean(sessions)])
+    if len(plan_rows) > 1:
+        story.append(styled_table(plan_rows, [70, 105, 55, 280]))
 
     doc.build(story)
     buffer.seek(0)

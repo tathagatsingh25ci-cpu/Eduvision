@@ -81,6 +81,13 @@
         attendanceDetailTitle: document.getElementById("attendanceDetailTitle"),
         attendanceDetailStatus: document.getElementById("attendanceDetailStatus"),
         attendanceDetail: document.getElementById("attendanceDetail"),
+        syllabusHero: document.getElementById("syllabusHero"),
+        syllabusForm: document.getElementById("syllabusForm"),
+        syllabusSubject: document.getElementById("syllabusSubject"),
+        syllabusStatus: document.getElementById("syllabusStatus"),
+        syllabusProgressPill: document.getElementById("syllabusProgressPill"),
+        syllabusSubjectGrid: document.getElementById("syllabusSubjectGrid"),
+        syllabusBoard: document.getElementById("syllabusBoard"),
         smartSessionForm: document.getElementById("smartSessionForm"),
         teacherNoteForm: document.getElementById("teacherNoteForm"),
         smartSessionCount: document.getElementById("smartSessionCount"),
@@ -544,6 +551,120 @@
         elements.smartSessionList.innerHTML = sessionHtml + noteHtml;
         elements.smartSessionList.querySelectorAll(".smart-submit-form").forEach((form) => form.addEventListener("submit", submitSmartAttendance));
         elements.smartSessionList.querySelectorAll(".smart-manual-form").forEach((form) => form.addEventListener("submit", submitManualAttendance));
+    }
+
+    function setupSyllabusFormOptions() {
+        if (elements.syllabusSubject && !elements.syllabusSubject.dataset.ready) {
+            elements.syllabusSubject.innerHTML = Object.entries(subjectLabels).map(([key, label]) => `<option value="${key}">${escapeHtml(label)}</option>`).join("");
+            elements.syllabusSubject.dataset.ready = "true";
+        }
+        if (elements.syllabusStatus && !elements.syllabusStatus.dataset.ready) {
+            elements.syllabusStatus.innerHTML = ["Not started", "Learning", "Revised", "Test-ready"].map((status) => `<option value="${status}">${escapeHtml(status)}</option>`).join("");
+            elements.syllabusStatus.dataset.ready = "true";
+        }
+    }
+
+    function renderSyllabus(payload = {}) {
+        setupSyllabusFormOptions();
+        const summary = payload.summary || {};
+        const daysLeft = summary.days_left;
+        const dayText = daysLeft === null || daysLeft === undefined
+            ? "No exam date"
+            : daysLeft < 0
+                ? `${Math.abs(daysLeft)} days overdue`
+                : `${daysLeft} days left`;
+
+        if (elements.syllabusHero) {
+            elements.syllabusHero.innerHTML = `
+                <div>
+                    <p class="eyebrow">${escapeHtml(payload.student_name || "Selected student")}</p>
+                    <h2>${escapeHtml(summary.next_exam_subject || "No exam set")}</h2>
+                    <p class="lead">${escapeHtml(summary.next_exam_chapter || "Add chapters and dates to start the exam countdown.")}</p>
+                </div>
+                <div class="syllabus-countdown">
+                    <span>Next Exam</span>
+                    <strong>${escapeHtml(dayText)}</strong>
+                    <small>${escapeHtml(summary.next_exam_date || "Set a date")}</small>
+                </div>
+                <div class="syllabus-countdown">
+                    <span>Readiness</span>
+                    <strong>${escapeHtml(summary.progress || 0)}%</strong>
+                    <small>${escapeHtml(summary.ready_count || 0)} test-ready chapters</small>
+                </div>
+            `;
+        }
+
+        if (elements.syllabusProgressPill) elements.syllabusProgressPill.textContent = `${summary.progress || 0}% ready`;
+
+        if (elements.syllabusSubjectGrid) {
+            elements.syllabusSubjectGrid.innerHTML = (payload.subjects || []).map((subject) => `
+                <article class="syllabus-subject-card">
+                    <div>
+                        <span>${escapeHtml(subject.subject)}</span>
+                        <strong>${escapeHtml(subject.progress)}%</strong>
+                    </div>
+                    <div class="progress"><div class="progress-fill" style="width: ${Math.min(100, Number(subject.progress || 0))}%"></div></div>
+                    <small>${escapeHtml(subject.ready)} test-ready | ${escapeHtml(subject.revised)} revised of ${escapeHtml(subject.total)}</small>
+                </article>
+            `).join("");
+        }
+
+        if (elements.syllabusBoard) {
+            const statuses = payload.statuses || ["Not started", "Learning", "Revised", "Test-ready"];
+            elements.syllabusBoard.innerHTML = statuses.map((status) => {
+                const chapters = (payload.chapters || []).filter((chapter) => chapter.status === status);
+                return `
+                    <section class="syllabus-column">
+                        <header><h3>${escapeHtml(status)}</h3><span class="pill">${chapters.length}</span></header>
+                        <div class="syllabus-chapter-list">
+                            ${chapters.map((chapter) => `
+                                <article class="syllabus-chapter">
+                                    <div>
+                                        <strong>${escapeHtml(chapter.chapter)}</strong>
+                                        <span>${escapeHtml(chapter.subject)}</span>
+                                    </div>
+                                    <small>${chapter.days_left === null || chapter.days_left === undefined ? "No date" : `${escapeHtml(chapter.days_left)} days`}</small>
+                                    <select data-syllabus-status="${chapter.id}">
+                                        ${statuses.map((option) => `<option value="${option}" ${option === chapter.status ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+                                    </select>
+                                </article>
+                            `).join("") || `<p class="message">No chapters here.</p>`}
+                        </div>
+                    </section>
+                `;
+            }).join("");
+
+            elements.syllabusBoard.querySelectorAll("[data-syllabus-status]").forEach((select) => {
+                select.addEventListener("change", () => updateSyllabusChapter(select.dataset.syllabusStatus, { status: select.value }));
+            });
+        }
+    }
+
+    async function loadSyllabus(studentId = selectedStudent?.id) {
+        if (!studentId || !elements.syllabusHero) return;
+        try {
+            const payload = await fetchJson(`/api/syllabus/${studentId}`);
+            renderSyllabus(payload);
+        } catch (error) {
+            window.showToast(error.message);
+        }
+    }
+
+    async function updateSyllabusChapter(chapterId, payload) {
+        try {
+            showLoading(true);
+            const data = await fetchJson(`/api/syllabus/chapter/${chapterId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            renderSyllabus(data.syllabus);
+            window.showToast("Syllabus updated");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
     }
 
     function renderAttendancePortal(portal) {
@@ -1170,6 +1291,7 @@
             showLoading(true);
             const student = await fetchJson(`/api/students/${id}`);
             renderProfile(student);
+            await loadSyllabus(student.id);
             if (openPrediction) switchView("prediction");
         } catch (error) {
             window.showToast(error.message);
@@ -1226,6 +1348,7 @@
         });
         elements.sidebar.classList.remove("open");
         if (view === "users") loadUsers();
+        if (view === "syllabus") loadSyllabus();
     }
 
     async function handleSearch(value) {
@@ -1299,6 +1422,30 @@
     document.getElementById("resetStudentForm")?.addEventListener("click", resetStudentForm);
     elements.smartSessionForm?.addEventListener("submit", createSmartSession);
     elements.teacherNoteForm?.addEventListener("submit", createTeacherNote);
+    elements.syllabusForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!selectedStudent) {
+            window.showToast("Select a student first");
+            return;
+        }
+        const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+        try {
+            showLoading(true);
+            const data = await fetchJson(`/api/syllabus/${selectedStudent.id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            event.currentTarget.reset();
+            setupSyllabusFormOptions();
+            renderSyllabus(data.syllabus);
+            window.showToast("Chapter added");
+        } catch (error) {
+            window.showToast(error.message);
+        } finally {
+            showLoading(false);
+        }
+    });
     elements.assistantToggle?.addEventListener("click", () => elements.assistantPanel?.classList.toggle("open"));
     elements.assistantClose?.addEventListener("click", () => elements.assistantPanel?.classList.remove("open"));
     elements.assistantForm?.addEventListener("submit", askAssistant);

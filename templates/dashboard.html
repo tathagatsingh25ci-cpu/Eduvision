@@ -30,6 +30,7 @@
             <a class="sidebar-link" href="#students" data-view="students"><span class="sidebar-icon">ST</span>Students</a>
             <a class="sidebar-link parent-only" href="#parent-portal" data-view="parent-portal"><span class="sidebar-icon">WD</span>Wards</a>
             <a class="sidebar-link" href="#attendance" data-view="attendance"><span class="sidebar-icon">AT</span>Attendance</a>
+            <a class="sidebar-link" href="#syllabus" data-view="syllabus"><span class="sidebar-icon">SY</span>Syllabus</a>
             <a class="sidebar-link parent-only" href="#parent-messages" data-view="parent-messages"><span class="sidebar-icon">PM</span>Messages</a>
             <a class="sidebar-link" href="#prediction" data-view="prediction"><span class="sidebar-icon">AI</span>Prediction</a>
             <a class="sidebar-link" href="#toppers" data-view="toppers"><span class="sidebar-icon">TP</span>Toppers</a>
@@ -382,6 +383,36 @@
                     </div>
                 </div>
                 <div class="parent-alert-grid" id="parentAlertGrid"></div>
+            </section>
+
+            <section class="view-section" id="view-syllabus">
+                <div class="section-head">
+                    <div><p class="eyebrow">Exam readiness</p><h1>Syllabus Tracker</h1></div>
+                    <div class="chip-row">
+                        <span class="chip">Not started</span>
+                        <span class="chip">Learning</span>
+                        <span class="chip">Revised</span>
+                        <span class="chip">Test-ready</span>
+                    </div>
+                </div>
+                <div class="syllabus-hero" id="syllabusHero"></div>
+                <form class="filter-panel syllabus-form" id="syllabusForm">
+                    <label>Subject <select name="subject_key" id="syllabusSubject"></select></label>
+                    <label>Chapter <input name="chapter" placeholder="Chapter name" required></label>
+                    <label>Exam Date <input name="exam_date" type="date"></label>
+                    <label>Status <select name="status" id="syllabusStatus"></select></label>
+                    <button class="btn" type="submit">Add Chapter</button>
+                </form>
+                <div class="syllabus-layout">
+                    <article class="chart-card">
+                        <header><h3>Subject Readiness</h3><span class="pill" id="syllabusProgressPill">0%</span></header>
+                        <div class="syllabus-subject-grid" id="syllabusSubjectGrid"></div>
+                    </article>
+                    <article class="chart-card">
+                        <header><h3>Chapter Board</h3><span class="pill">Live tracker</span></header>
+                        <div class="syllabus-board" id="syllabusBoard"></div>
+                    </article>
+                </div>
             </section>
 
             <section class="view-section" id="view-prediction">

@@ -1915,6 +1915,138 @@ tbody tr:hover {
     align-items: end;
 }
 
+.syllabus-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.34fr) minmax(180px, 0.34fr);
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.syllabus-hero > div,
+.syllabus-countdown,
+.syllabus-subject-card,
+.syllabus-column,
+.syllabus-chapter {
+    border: 1px solid rgba(129, 230, 217, 0.14);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(8, 19, 38, 0.78), rgba(3, 7, 18, 0.5));
+    box-shadow: var(--shadow);
+}
+
+.syllabus-hero > div {
+    padding: 18px;
+}
+
+.syllabus-hero h2 {
+    margin-bottom: 8px;
+}
+
+.syllabus-countdown {
+    display: grid;
+    align-content: center;
+    min-height: 142px;
+}
+
+.syllabus-countdown span,
+.syllabus-subject-card span,
+.syllabus-chapter span {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.syllabus-countdown strong {
+    margin: 8px 0;
+    color: var(--cyan);
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 2rem;
+}
+
+.syllabus-countdown small,
+.syllabus-subject-card small,
+.syllabus-chapter small {
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.syllabus-form {
+    margin-bottom: 18px;
+}
+
+.syllabus-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.38fr) minmax(0, 1fr);
+    gap: 18px;
+}
+
+.syllabus-subject-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.syllabus-subject-card {
+    display: grid;
+    gap: 10px;
+    padding: 13px;
+}
+
+.syllabus-subject-card div:first-child {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.syllabus-subject-card strong {
+    color: var(--lime);
+}
+
+.syllabus-board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.syllabus-column {
+    min-width: 180px;
+    padding: 12px;
+}
+
+.syllabus-column header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.syllabus-column h3 {
+    margin-bottom: 0;
+    font-size: 1rem;
+}
+
+.syllabus-chapter-list {
+    display: grid;
+    gap: 10px;
+}
+
+.syllabus-chapter {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+}
+
+.syllabus-chapter strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.syllabus-chapter select {
+    min-height: 36px;
+    padding: 7px 9px;
+}
+
 .hidden {
     display: none !important;
 }
@@ -2195,6 +2327,8 @@ tbody tr:hover {
     .parent-portal-hero,
     .parent-ward-grid,
     .parent-alert-grid,
+    .syllabus-hero,
+    .syllabus-layout,
     .model-grid {
         grid-template-columns: 1fr;
     }
@@ -2291,6 +2425,7 @@ tbody tr:hover {
     .parent-lookup-card,
     .parent-ward-top,
     .parent-metric-row,
+    .syllabus-hero,
     .filter-panel {
         grid-template-columns: 1fr;
     }

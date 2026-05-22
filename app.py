@@ -75,6 +75,19 @@ SUBJECT_SHORT_LABELS = {
 
 STREAMS = ["Science", "Commerce", "Arts"]
 ROLE_CHOICES = {"admin", "teacher", "student", "parent"}
+SYLLABUS_STATUSES = ["Not started", "Learning", "Revised", "Test-ready"]
+DEFAULT_CHAPTERS = {
+    "mathematics": ["Algebra", "Geometry", "Trigonometry"],
+    "physics": ["Motion", "Electricity", "Light"],
+    "chemistry": ["Chemical Reactions", "Acids and Bases", "Metals"],
+    "biology": ["Life Processes", "Control and Coordination", "Heredity"],
+    "computer_science": ["Python Basics", "Data Handling", "Web Concepts"],
+    "english": ["Reading Skills", "Writing Skills", "Literature"],
+    "geography": ["Resources", "Climate", "Maps"],
+    "history": ["Nationalism", "Industrialisation", "Modern World"],
+    "economics": ["Development", "Money and Credit", "Globalisation"],
+    "physical_education": ["Fitness", "Sports Training", "Health Education"],
+}
 
 
 def default_database_uri():
@@ -266,6 +279,19 @@ class TeacherNote(db.Model):
     description = db.Column(db.Text)
     file_name = db.Column(db.String(180))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SyllabusChapter(db.Model):
+    __tablename__ = "syllabus_chapters"
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=False)
+    subject_key = db.Column(db.String(60), nullable=False)
+    subject = db.Column(db.String(80), nullable=False)
+    chapter = db.Column(db.String(160), nullable=False)
+    status = db.Column(db.String(30), nullable=False, default="Not started")
+    exam_date = db.Column(db.Date)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class MLModel:
@@ -1427,9 +1453,95 @@ def sync_student_records(student):
     )
 
 
+def ensure_syllabus_chapters(student):
+    existing = {
+        (chapter.subject_key, chapter.chapter.lower()): chapter
+        for chapter in SyllabusChapter.query.filter_by(student_id=student.id).all()
+    }
+    base_date = datetime.utcnow().date() + timedelta(days=45)
+    created = False
+    for subject_index, (subject_key, chapters) in enumerate(DEFAULT_CHAPTERS.items()):
+        for chapter_index, chapter_name in enumerate(chapters):
+            key = (subject_key, chapter_name.lower())
+            if key not in existing:
+                db.session.add(
+                    SyllabusChapter(
+                        student_id=student.id,
+                        subject_key=subject_key,
+                        subject=SUBJECT_LABELS[subject_key],
+                        chapter=chapter_name,
+                        exam_date=base_date + timedelta(days=subject_index * 3 + chapter_index),
+                    )
+                )
+                created = True
+    if created:
+        db.session.flush()
+
+
+def syllabus_payload(student):
+    ensure_syllabus_chapters(student)
+    chapters = SyllabusChapter.query.filter_by(student_id=student.id).order_by(SyllabusChapter.exam_date.asc(), SyllabusChapter.subject.asc()).all()
+    total = len(chapters)
+    status_counts = {status: 0 for status in SYLLABUS_STATUSES}
+    for chapter in chapters:
+        status_counts[chapter.status if chapter.status in status_counts else "Not started"] += 1
+    ready_count = status_counts["Test-ready"]
+    revised_count = status_counts["Revised"]
+    progress = round(((ready_count * 1) + (revised_count * 0.75) + (status_counts["Learning"] * 0.38)) / total * 100, 1) if total else 0
+    upcoming = [chapter for chapter in chapters if chapter.exam_date]
+    next_exam = min(upcoming, key=lambda chapter: chapter.exam_date) if upcoming else None
+    days_left = (next_exam.exam_date - datetime.utcnow().date()).days if next_exam and next_exam.exam_date else None
+    subject_summary = []
+    for subject_key, label in SUBJECT_LABELS.items():
+        rows = [chapter for chapter in chapters if chapter.subject_key == subject_key]
+        if not rows:
+            continue
+        subject_summary.append(
+            {
+                "subject_key": subject_key,
+                "subject": label,
+                "total": len(rows),
+                "ready": sum(1 for row in rows if row.status == "Test-ready"),
+                "revised": sum(1 for row in rows if row.status == "Revised"),
+                "progress": round(sum(SYLLABUS_STATUSES.index(row.status) if row.status in SYLLABUS_STATUSES else 0 for row in rows) / (len(rows) * 3) * 100, 1),
+            }
+        )
+    return {
+        "student_id": student.id,
+        "student_name": student.name,
+        "statuses": SYLLABUS_STATUSES,
+        "summary": {
+            "total": total,
+            "progress": progress,
+            "ready_count": ready_count,
+            "revised_count": revised_count,
+            "learning_count": status_counts["Learning"],
+            "not_started_count": status_counts["Not started"],
+            "next_exam_subject": next_exam.subject if next_exam else "No exam set",
+            "next_exam_chapter": next_exam.chapter if next_exam else "",
+            "next_exam_date": next_exam.exam_date.isoformat() if next_exam and next_exam.exam_date else "",
+            "days_left": days_left,
+        },
+        "subjects": subject_summary,
+        "chapters": [
+            {
+                "id": chapter.id,
+                "subject_key": chapter.subject_key,
+                "subject": chapter.subject,
+                "chapter": chapter.chapter,
+                "status": chapter.status,
+                "exam_date": chapter.exam_date.isoformat() if chapter.exam_date else "",
+                "days_left": (chapter.exam_date - datetime.utcnow().date()).days if chapter.exam_date else None,
+            }
+            for chapter in chapters
+        ],
+    }
+
+
 def refresh_all_student_records():
     for student in Student.query.all():
         ensure_class_attendance(student)
+        ensure_syllabus_chapters(student)
         sync_student_records(student)
 
 
@@ -1563,6 +1675,7 @@ def ensure_schema_updates():
     columns = {row["name"] for row in inspector_rows}
     if inspector_rows and "meeting_url" not in columns:
         db.session.execute(text("ALTER TABLE smart_attendance_sessions ADD COLUMN meeting_url VARCHAR(500)"))
+    db.create_all()
 
 
 def build_demo_students(total=100):
@@ -2599,6 +2712,81 @@ def parent_link_student(student_id):
         db.session.add(ParentStudent(parent_user_id=current_user().id, student_id=student.id, relationship="Parent"))
         db.session.commit()
     return jsonify({"success": True, "student": serialize_student(student, detail=True)})
+
+
+@app.route("/api/syllabus/<int:student_id>")
+@login_required
+def get_syllabus(student_id):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify({"success": False, "message": "Student not found"}), 404
+    if not can_view_student(student):
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+    return jsonify(syllabus_payload(student))
+
+
+@app.route("/api/syllabus/<int:student_id>", methods=["POST"])
+@login_required
+def add_syllabus_chapter(student_id):
+    student = db.session.get(Student, student_id)
+    if not student:
+        return jsonify({"success": False, "message": "Student not found"}), 404
+    if not can_view_student(student):
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+    data = request_payload()
+    subject_key = get_text(data, "subject_key")
+    chapter = get_text(data, "chapter")
+    status = get_text(data, "status", "Not started")
+    if subject_key not in SUBJECT_LABELS:
+        return jsonify({"success": False, "message": "Choose a valid subject"}), 400
+    if not chapter:
+        return jsonify({"success": False, "message": "Chapter name is required"}), 400
+    if status not in SYLLABUS_STATUSES:
+        return jsonify({"success": False, "message": "Choose a valid status"}), 400
+    exam_date = None
+    raw_date = get_text(data, "exam_date")
+    if raw_date:
+        try:
+            exam_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"success": False, "message": "Use YYYY-MM-DD for exam date"}), 400
+    db.session.add(
+        SyllabusChapter(
+            student_id=student.id,
+            subject_key=subject_key,
+            subject=SUBJECT_LABELS[subject_key],
+            chapter=chapter,
+            status=status,
+            exam_date=exam_date,
+        )
+    )
+    db.session.commit()
+    return jsonify({"success": True, "syllabus": syllabus_payload(student)})
+
+
+@app.route("/api/syllabus/chapter/<int:chapter_id>", methods=["PUT"])
+@login_required
+def update_syllabus_chapter(chapter_id):
+    chapter = db.session.get(SyllabusChapter, chapter_id)
+    if not chapter:
+        return jsonify({"success": False, "message": "Chapter not found"}), 404
+    student = db.session.get(Student, chapter.student_id)
+    if not student or not can_view_student(student):
+        return jsonify({"success": False, "message": "Permission denied"}), 403
+    data = request_payload()
+    status = get_text(data, "status", chapter.status)
+    if status not in SYLLABUS_STATUSES:
+        return jsonify({"success": False, "message": "Choose a valid status"}), 400
+    chapter.status = status
+    raw_date = get_text(data, "exam_date")
+    if raw_date:
+        try:
+            chapter.exam_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"success": False, "message": "Use YYYY-MM-DD for exam date"}), 400
+    chapter.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "syllabus": syllabus_payload(student)})
 
 
 @app.route("/api/users")

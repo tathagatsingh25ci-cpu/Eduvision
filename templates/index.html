@@ -11,9 +11,10 @@
             <span>EduVision AI</span>
         </a>
         <div class="nav-links">
+            <a href="#how-it-works">How It Works</a>
+            <a href="#roles">Roles</a>
             <a href="#analytics">AI Analytics</a>
             <a href="#prediction">Prediction</a>
-            <a href="#tracking">Tracking</a>
             <a href="#features">Features</a>
             <a href="#contact">Contact</a>
         </div>
@@ -37,9 +38,9 @@
                 EduVision AI turns marks, attendance, predictions, and reports into a real-time academic command center for schools, teachers, and students.
             </p>
             <div class="actions">
-                <a class="btn" href="{{ url_for('login') }}">Open Dashboard</a>
-                <a class="btn secondary" href="{{ url_for('parent_login') }}">Parent Portal</a>
-                <a class="btn secondary" href="{{ url_for('signup') }}">Create Account</a>
+                <a class="btn" href="{{ url_for('login') }}">Try Demo Dashboard</a>
+                <a class="btn secondary" href="{{ url_for('parent_login') }}">Login as Parent</a>
+                <a class="btn secondary" href="{{ url_for('signup') }}">Create School Account</a>
             </div>
             <div class="chip-row" style="margin-top: 24px;">
                 <span class="chip">ML Predictions</span>
@@ -55,6 +56,39 @@
     </section>
 
     <section class="section-tight">
+        <div class="container product-metrics" aria-label="Product metrics">
+            <div><span>Students Tracked</span><strong data-counter="1200">0</strong><small>+</small></div>
+            <div><span>Subjects Analyzed</span><strong data-counter="8">0</strong><small>core</small></div>
+            <div><span>User Roles</span><strong data-counter="4">0</strong><small>secure</small></div>
+            <div><span>PDF Reports</span><strong data-counter="1">0</strong><small>click</small></div>
+        </div>
+    </section>
+
+    <section id="how-it-works" class="section">
+        <div class="container">
+            <p class="eyebrow">How it works</p>
+            <h2>From raw records to decision-ready insights</h2>
+            <div class="process-grid">
+                <article class="process-card">
+                    <span class="step-number">01</span>
+                    <h3>Upload Student Data</h3>
+                    <p class="lead">Import marks, attendance, classes, streams, and student profiles from the school workflow.</p>
+                </article>
+                <article class="process-card">
+                    <span class="step-number">02</span>
+                    <h3>AI Analyzes Performance</h3>
+                    <p class="lead">Models detect risk, compare subject strength, estimate outcomes, and surface improvement signals.</p>
+                </article>
+                <article class="process-card">
+                    <span class="step-number">03</span>
+                    <h3>Generate Dashboards</h3>
+                    <p class="lead">Teachers, students, parents, and admins get focused dashboards, reports, and next actions.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-tight">
         <div class="container preview-band">
             <div>
                 <p class="eyebrow">Live product preview</p>
@@ -64,23 +98,52 @@
         </div>
     </section>
 
+    <section id="roles" class="section">
+        <div class="container">
+            <p class="eyebrow">Role based access</p>
+            <h2>One platform, four focused experiences</h2>
+            <div class="role-grid">
+                <article class="role-card">
+                    <span class="feature-icon">AD</span>
+                    <h3>Admin</h3>
+                    <p class="lead">Manage users, school records, imports, exports, and complete platform activity.</p>
+                </article>
+                <article class="role-card">
+                    <span class="feature-icon">TC</span>
+                    <h3>Teacher</h3>
+                    <p class="lead">Review marks, attendance, predictions, weak subjects, and class-level insights.</p>
+                </article>
+                <article class="role-card">
+                    <span class="feature-icon">ST</span>
+                    <h3>Student</h3>
+                    <p class="lead">Track scores, ranking, AI risk level, strengths, weaknesses, and report downloads.</p>
+                </article>
+                <article class="role-card">
+                    <span class="feature-icon">PR</span>
+                    <h3>Parent</h3>
+                    <p class="lead">Monitor ward progress, attendance trends, academic alerts, and teacher messages.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
     <section id="analytics" class="section">
         <div class="container">
             <p class="eyebrow">Analytics engine</p>
             <h2>AI Analytics</h2>
             <div class="feature-grid">
                 <article class="feature-card">
-                    <span class="feature-icon">A1</span>
+                    <span class="feature-icon">AI</span>
                     <h3>School Intelligence</h3>
                     <p class="lead">Monitor average score, pass rate, attendance, risk count, and toppers from live database records.</p>
                 </article>
                 <article class="feature-card">
-                    <span class="feature-icon">A2</span>
+                    <span class="feature-icon">CH</span>
                     <h3>Subject Diagnostics</h3>
                     <p class="lead">Compare subject averages, class trends, and stream performance with animated Chart.js visuals.</p>
                 </article>
                 <article class="feature-card">
-                    <span class="feature-icon">A3</span>
+                    <span class="feature-icon">IN</span>
                     <h3>Insight Cards</h3>
                     <p class="lead">Generate recommendations from marks, attendance patterns, strengths, weaknesses, and topper movement.</p>
                 </article>
@@ -121,17 +184,17 @@
             <h2>Every learner has a profile</h2>
             <div class="feature-grid">
                 <article class="feature-card">
-                    <span class="feature-icon">S1</span>
+                    <span class="feature-icon">PF</span>
                     <h3>Full Profile</h3>
                     <p class="lead">Roll number, class, section, stream, attendance, marks, ranking, and predictions stay connected.</p>
                 </article>
                 <article class="feature-card">
-                    <span class="feature-icon">S2</span>
+                    <span class="feature-icon">SR</span>
                     <h3>Global Search</h3>
                     <p class="lead">Find students by name, roll number, class, or stream and open a complete performance view.</p>
                 </article>
                 <article class="feature-card">
-                    <span class="feature-icon">S3</span>
+                    <span class="feature-icon">PT</span>
                     <h3>Student Portal</h3>
                     <p class="lead">Students can log in to see their marks, AI risk level, strengths, weaknesses, and report download.</p>
                 </article>
@@ -158,12 +221,41 @@
             <p class="eyebrow">Platform features</p>
             <h2>Complete analytics workspace</h2>
             <div class="feature-grid">
-                <article class="feature-card"><span class="feature-icon">F1</span><h3>Role Login</h3><p class="lead">Admin, teacher, student, and parent sessions with separate dashboard routes.</p></article>
-                <article class="feature-card"><span class="feature-icon">F2</span><h3>Data Entry</h3><p class="lead">Add, edit, delete, search, import, and export student records.</p></article>
-                <article class="feature-card"><span class="feature-icon">F3</span><h3>Report System</h3><p class="lead">Download PDF reports with marks, predictions, graphs, and recommendations.</p></article>
-                <article class="feature-card"><span class="feature-icon">F4</span><h3>Topper Analytics</h3><p class="lead">Overall topper, stream toppers, subject toppers, and top 10 leaderboard.</p></article>
-                <article class="feature-card"><span class="feature-icon">F5</span><h3>Advanced Charts</h3><p class="lead">Bar, line, doughnut, radar, scatter, heatmap-style cards, and stream graphs.</p></article>
-                <article class="feature-card"><span class="feature-icon">F6</span><h3>AI Insights</h3><p class="lead">Automatic academic signals and recommendation cards for intervention planning.</p></article>
+                <article class="feature-card"><span class="feature-icon">RL</span><h3>Role Login</h3><p class="lead">Admin, teacher, student, and parent sessions with separate dashboard routes.</p></article>
+                <article class="feature-card"><span class="feature-icon">DB</span><h3>Data Entry</h3><p class="lead">Add, edit, delete, search, import, and export student records.</p></article>
+                <article class="feature-card"><span class="feature-icon">RP</span><h3>Report System</h3><p class="lead">Download PDF reports with marks, predictions, graphs, and recommendations.</p></article>
+                <article class="feature-card"><span class="feature-icon">TP</span><h3>Topper Analytics</h3><p class="lead">Overall topper, stream toppers, subject toppers, and top 10 leaderboard.</p></article>
+                <article class="feature-card"><span class="feature-icon">GR</span><h3>Advanced Charts</h3><p class="lead">Bar, line, doughnut, radar, scatter, heatmap-style cards, and stream graphs.</p></article>
+                <article class="feature-card"><span class="feature-icon">RX</span><h3>AI Insights</h3><p class="lead">Automatic academic signals and recommendation cards for intervention planning.</p></article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container comparison-panel">
+            <div>
+                <p class="eyebrow">Why EduVision AI</p>
+                <h2>Replace slow result analysis with instant intelligence</h2>
+            </div>
+            <div class="comparison-grid">
+                <article class="comparison-card muted-card">
+                    <h3>Manual Analysis</h3>
+                    <div class="details-list">
+                        <div><span>Spreadsheet checking</span><strong>Slow</strong></div>
+                        <div><span>Report generation</span><strong>Manual</strong></div>
+                        <div><span>Risk prediction</span><strong>Missing</strong></div>
+                        <div><span>Parent updates</span><strong>Delayed</strong></div>
+                    </div>
+                </article>
+                <article class="comparison-card highlight-card">
+                    <h3>EduVision AI</h3>
+                    <div class="details-list">
+                        <div><span>Academic analytics</span><strong>Live</strong></div>
+                        <div><span>Reports and exports</span><strong>Instant</strong></div>
+                        <div><span>Prediction models</span><strong>Built in</strong></div>
+                        <div><span>Role dashboards</span><strong>Ready</strong></div>
+                    </div>
+                </article>
             </div>
         </div>
     </section>
@@ -175,16 +267,29 @@
             <div class="testimonial-grid">
                 <article class="testimonial">
                     <p class="lead">"The dashboard makes result analysis feel instant and professional."</p>
-                    <strong>Academic Coordinator</strong>
+                    <strong>School Examination Head</strong>
                 </article>
                 <article class="testimonial">
                     <p class="lead">"Risk prediction and subject insights are exactly what teachers need before exams."</p>
-                    <strong>Senior Teacher</strong>
+                    <strong>Class 10 Science Teacher</strong>
                 </article>
                 <article class="testimonial">
                     <p class="lead">"The student portal gives learners a clear view of what to improve next."</p>
-                    <strong>Class Mentor</strong>
+                    <strong>Parent of Grade 9 Student</strong>
                 </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-tight">
+        <div class="container final-cta">
+            <div>
+                <p class="eyebrow">Ready for smarter review</p>
+                <h2>Modernize result analysis for every role</h2>
+            </div>
+            <div class="actions">
+                <a class="btn" href="{{ url_for('signup') }}">Launch Platform</a>
+                <a class="btn secondary" href="{{ url_for('parent_login') }}">Parent Portal</a>
             </div>
         </div>
     </section>
@@ -210,4 +315,33 @@
         </div>
     </section>
 </main>
+
+<footer class="site-footer">
+    <div class="container footer-grid">
+        <div>
+            <a href="{{ url_for('index') }}" class="brand">
+                <span class="brand-mark">EV</span>
+                <span>EduVision AI</span>
+            </a>
+            <p class="lead">AI powered examination analytics for schools, teachers, students, and parents.</p>
+        </div>
+        <div>
+            <h3>Explore</h3>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#roles">Roles</a>
+            <a href="#features">Features</a>
+            <a href="#contact">Contact</a>
+        </div>
+        <div>
+            <h3>Portals</h3>
+            <a href="{{ url_for('login') }}">Dashboard Login</a>
+            <a href="{{ url_for('parent_login') }}">Parent Portal</a>
+            <a href="{{ url_for('signup') }}">Create Account</a>
+        </div>
+    </div>
+    <div class="container footer-bottom">
+        <span>&copy; 2026 EduVision AI</span>
+        <span>Smart Examination Analytics</span>
+    </div>
+</footer>
 {% endblock %}

@@ -368,6 +368,44 @@ button.btn {
     padding: 30px 0 10px;
 }
 
+.product-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.product-metrics div {
+    min-height: 118px;
+    padding: 18px;
+    border: 1px solid rgba(129, 230, 217, 0.18);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(8, 19, 38, 0.82), rgba(3, 7, 18, 0.56));
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(16px);
+}
+
+.product-metrics span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.product-metrics strong {
+    display: inline-block;
+    margin-top: 12px;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 2.45rem;
+    line-height: 1;
+}
+
+.product-metrics small {
+    margin-left: 6px;
+    color: var(--cyan);
+    font-weight: 900;
+}
+
 .preview-band {
     display: grid;
     grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1fr);
@@ -515,7 +553,10 @@ h3 {
 .testimonial-grid,
 .stats-grid,
 .chart-grid,
-.topper-grid {
+.topper-grid,
+.process-grid,
+.role-grid,
+.comparison-grid {
     display: grid;
     gap: 18px;
 }
@@ -532,8 +573,20 @@ h3 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.process-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    counter-reset: process;
+}
+
+.role-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .feature-card,
 .testimonial,
+.process-card,
+.role-card,
+.comparison-card,
 .panel {
     padding: 22px;
 }
@@ -541,6 +594,60 @@ h3 {
 .feature-card {
     min-height: 210px;
     transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.process-card,
+.role-card,
+.comparison-card,
+.final-cta,
+.site-footer {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(8, 19, 38, 0.82), rgba(8, 19, 38, 0.56));
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.process-card {
+    position: relative;
+    min-height: 238px;
+    overflow: hidden;
+}
+
+.process-card::after {
+    content: "";
+    position: absolute;
+    right: -38px;
+    bottom: -52px;
+    width: 150px;
+    aspect-ratio: 1;
+    border: 1px solid rgba(34, 211, 238, 0.12);
+    border-radius: 50%;
+    background: rgba(34, 211, 238, 0.06);
+}
+
+.step-number {
+    display: inline-grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(163, 230, 53, 0.32);
+    border-radius: var(--radius);
+    background: rgba(163, 230, 53, 0.08);
+    color: var(--lime);
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-weight: 900;
+}
+
+.role-card {
+    min-height: 240px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.role-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--line-strong);
 }
 
 .feature-card:hover,
@@ -574,6 +681,47 @@ h3 {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: 22px;
     align-items: center;
+}
+
+.comparison-panel {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.comparison-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparison-card {
+    min-height: 292px;
+}
+
+.comparison-card h3 {
+    margin-bottom: 18px;
+}
+
+.highlight-card {
+    border-color: rgba(34, 211, 238, 0.34);
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.13), rgba(8, 19, 38, 0.6));
+}
+
+.muted-card {
+    border-color: rgba(143, 168, 189, 0.16);
+    background: linear-gradient(180deg, rgba(15, 35, 65, 0.5), rgba(3, 7, 18, 0.5));
+}
+
+.final-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 26px;
+}
+
+.final-cta h2 {
+    margin-bottom: 0;
 }
 
 .contact-grid {
@@ -1678,6 +1826,54 @@ tbody tr:hover {
     animation: popIcon 760ms ease-out forwards;
 }
 
+.site-footer {
+    position: relative;
+    z-index: 1;
+    margin: 44px auto 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(180px, 0.45fr));
+    gap: 28px;
+    padding: 34px 0 24px;
+}
+
+.footer-grid .lead {
+    max-width: 520px;
+    margin: 16px 0 0;
+}
+
+.footer-grid h3 {
+    margin-bottom: 12px;
+}
+
+.footer-grid a:not(.brand) {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.footer-grid a:not(.brand):hover {
+    color: var(--cyan);
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 0 24px;
+    border-top: 1px solid rgba(129, 230, 217, 0.12);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
 .loading {
     position: fixed;
     inset: 0;
@@ -1763,6 +1959,10 @@ tbody tr:hover {
     .topper-grid,
     .feature-grid,
     .testimonial-grid,
+    .process-grid,
+    .role-grid,
+    .comparison-panel,
+    .comparison-grid,
     .dashboard-preview,
     .contact-grid,
     .detail-grid,
@@ -1778,7 +1978,8 @@ tbody tr:hover {
     }
 
     .attendance-summary,
-    .attendance-class-grid {
+    .attendance-class-grid,
+    .product-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -1811,6 +2012,11 @@ tbody tr:hover {
         position: static;
         grid-template-columns: 1fr;
         width: 100%;
+    }
+
+    .final-cta {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .dashboard-shell {
@@ -1847,6 +2053,7 @@ tbody tr:hover {
     .form-grid.two,
     .subject-grid,
     .mini-stat-grid,
+    .product-metrics,
     .attendance-summary,
     .compact-form,
     .attendance-profile-strip,
@@ -1925,9 +2132,14 @@ tbody tr:hover {
     .topbar-left,
     .topbar-right,
     .form-row,
-    .nav-actions {
+    .nav-actions,
+    .footer-bottom {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr;
     }
 
     .floating-icons span {

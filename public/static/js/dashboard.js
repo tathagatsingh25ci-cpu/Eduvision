@@ -65,6 +65,9 @@
         profile: document.getElementById("studentProfile"),
         searchInput: document.getElementById("globalSearch"),
         searchResults: document.getElementById("searchResults"),
+        analysisSummaryGrid: document.getElementById("analysisSummaryGrid"),
+        analysisInsightsGrid: document.getElementById("analysisInsightsGrid"),
+        subjectAnalysisBody: document.getElementById("subjectAnalysisBody"),
         insightGrid: document.getElementById("insightGrid"),
         interventionGrid: document.getElementById("interventionGrid"),
         recentActivity: document.getElementById("recentActivity"),
@@ -399,6 +402,24 @@
             }),
         });
 
+        const analysis = data.result_analysis || {};
+        const comparisons = analysis.comparisons || [];
+        renderChart("comparison", "comparisonChart", {
+            type: "bar",
+            data: {
+                labels: comparisons.map((item) => item.label),
+                datasets: [{
+                    label: "Result %",
+                    data: comparisons.map((item) => Number(item.value) || 0),
+                    backgroundColor: comparisons.map((item) => item.label === "You" ? "rgba(163,230,53,0.84)" : "rgba(34,211,238,0.62)"),
+                    borderColor: comparisons.map((item) => item.label === "You" ? "#a3e635" : "#22d3ee"),
+                    borderWidth: 1,
+                    borderRadius: 8,
+                }],
+            },
+            options: baseChartOptions(),
+        });
+
         renderChart("radar", "radarChart", {
             type: "radar",
             data: {
@@ -427,6 +448,42 @@
                 plugins: { legend: { labels: { color: "#8fa8bd" } } },
             },
         });
+
+        renderResultAnalysis(analysis);
+    }
+
+    function renderResultAnalysis(analysis = {}) {
+        if (elements.analysisSummaryGrid) {
+            elements.analysisSummaryGrid.innerHTML = (analysis.summary || []).map((item) => `
+                <article class="metric-card analysis-card">
+                    <div class="metric-label">${escapeHtml(item.label)}</div>
+                    <div class="metric-value">${escapeHtml(item.value)}${escapeHtml(item.suffix || "")}</div>
+                    <div class="metric-meta">${escapeHtml(item.meta || "")}</div>
+                </article>
+            `).join("");
+        }
+        if (elements.analysisInsightsGrid) {
+            elements.analysisInsightsGrid.innerHTML = (analysis.insights || []).map((item) => `
+                <article class="analysis-insight-card">
+                    <h3>${escapeHtml(item.title)}</h3>
+                    <p>${escapeHtml(item.text)}</p>
+                </article>
+            `).join("");
+        }
+        if (elements.subjectAnalysisBody) {
+            elements.subjectAnalysisBody.innerHTML = (analysis.subjects || []).map((item) => `
+                <tr>
+                    <td>${escapeHtml(item.subject)}</td>
+                    <td><strong>${escapeHtml(item.student_mark)}%</strong></td>
+                    <td>${escapeHtml(item.class_average)}%</td>
+                    <td>${escapeHtml(item.school_average)}%</td>
+                    <td>${escapeHtml(item.topper_mark)}% <span class="muted">${escapeHtml(item.topper_name)}</span></td>
+                    <td><span class="pill ${Number(item.gap_to_topper) <= 3 ? "success" : Number(item.gap_to_topper) >= 15 ? "danger" : "warning"}">${escapeHtml(item.gap_to_topper)}%</span></td>
+                    <td>#${escapeHtml(item.rank)}</td>
+                    <td><span class="pill">${escapeHtml(item.status)}</span></td>
+                </tr>
+            `).join("");
+        }
     }
 
     function renderHeatmap(heatmap) {

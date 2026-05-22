@@ -112,18 +112,49 @@
 
             <section class="view-section" id="view-analytics">
                 <div class="section-head">
-                    <div><p class="eyebrow">Advanced charts</p><h1>Analytics Engine</h1></div>
+                    <div><p class="eyebrow">Result analysis engine</p><h1>Marks Analysis</h1></div>
                 </div>
+                <div class="analysis-summary-grid" id="analysisSummaryGrid"></div>
                 <div class="chart-grid">
                     <article class="chart-card">
                         <header><h3>Attendance vs Marks</h3><span class="pill">Scatter</span></header>
                         <div class="chart-wrap"><canvas id="attendanceChart"></canvas></div>
                     </article>
                     <article class="chart-card">
+                        <header><h3>Student vs Topper</h3><span class="pill">Benchmark</span></header>
+                        <div class="chart-wrap"><canvas id="comparisonChart"></canvas></div>
+                    </article>
+                </div>
+                <div class="chart-grid">
+                    <article class="chart-card">
                         <header><h3>Subject Radar</h3><span class="pill">Radar</span></header>
                         <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
                     </article>
+                    <article class="chart-card">
+                        <header><h3>Benchmark Insights</h3><span class="pill">AI reading</span></header>
+                        <div class="analysis-insight-grid" id="analysisInsightsGrid"></div>
+                    </article>
                 </div>
+                <article class="table-card">
+                    <header><h3>Subject-by-Subject Result Breakdown</h3><span class="pill">Topper comparison</span></header>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Student</th>
+                                    <th>Class Avg</th>
+                                    <th>School Avg</th>
+                                    <th>Topper</th>
+                                    <th>Gap</th>
+                                    <th>Rank</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subjectAnalysisBody"></tbody>
+                        </table>
+                    </div>
+                </article>
                 <article class="chart-card">
                     <header><h3>Class Heatmap</h3><span class="pill">Subject intensity</span></header>
                     <div class="heatmap-grid" id="heatmapGrid"></div>

@@ -2101,6 +2101,99 @@ def category_distribution_payload(students=None):
     return data
 
 
+def result_analysis_payload(students=None):
+    visible_students = students if students is not None else scoped_students().all()
+    all_students = Student.query.all()
+    if not visible_students or not all_students:
+        return {
+            "focus_student": None,
+            "summary": [],
+            "comparisons": [],
+            "subjects": [],
+            "insights": [],
+        }
+
+    focus = visible_students[0]
+    if current_user() and current_user().role == "student":
+        focus = student_from_user(current_user()) or focus
+    focus_percentage = calculate_percentage(focus)
+    prediction = prediction_payload(focus)
+    ranked_all = sorted(all_students, key=calculate_percentage, reverse=True)
+    rank_all = {student.id: index + 1 for index, student in enumerate(ranked_all)}
+    overall_topper = ranked_all[0]
+    class_students = [student for student in all_students if student.class_name == focus.class_name]
+    stream_students = [student for student in all_students if (student.stream or "") == (focus.stream or "")]
+    class_topper = max(class_students, key=calculate_percentage) if class_students else overall_topper
+    stream_topper = max(stream_students, key=calculate_percentage) if stream_students else overall_topper
+    class_avg = round(float(np.mean([calculate_percentage(student) for student in class_students])), 1) if class_students else 0
+    stream_avg = round(float(np.mean([calculate_percentage(student) for student in stream_students])), 1) if stream_students else 0
+    school_avg = round(float(np.mean([calculate_percentage(student) for student in all_students])), 1)
+    below_count = sum(1 for student in all_students if calculate_percentage(student) < focus_percentage)
+    percentile = round(below_count / len(all_students) * 100, 1)
+
+    subject_rows = []
+    for field, label in SUBJECT_LABELS.items():
+        focus_mark = round(float(getattr(focus, field, 0) or 0), 1)
+        class_values = [float(getattr(student, field, 0) or 0) for student in class_students]
+        school_values = [float(getattr(student, field, 0) or 0) for student in all_students]
+        subject_topper = max(all_students, key=lambda student: float(getattr(student, field, 0) or 0))
+        topper_mark = round(float(getattr(subject_topper, field, 0) or 0), 1)
+        gap = round(topper_mark - focus_mark, 1)
+        subject_rank = 1 + sum(1 for student in all_students if float(getattr(student, field, 0) or 0) > focus_mark)
+        subject_rows.append(
+            {
+                "subject": label,
+                "student_mark": focus_mark,
+                "class_average": round(float(np.mean(class_values)), 1) if class_values else 0,
+                "school_average": round(float(np.mean(school_values)), 1) if school_values else 0,
+                "topper_mark": topper_mark,
+                "topper_name": subject_topper.name,
+                "gap_to_topper": gap,
+                "rank": subject_rank,
+                "status": "Ahead" if focus_mark >= topper_mark - 3 else "Strong" if focus_mark >= 75 else "Focus" if focus_mark < 60 else "Stable",
+            }
+        )
+
+    weakest = sorted(subject_rows, key=lambda item: item["student_mark"])[:3]
+    biggest_gaps = sorted(subject_rows, key=lambda item: item["gap_to_topper"], reverse=True)[:3]
+    strongest = sorted(subject_rows, key=lambda item: item["student_mark"], reverse=True)[:3]
+    comparisons = [
+        {"label": "You", "value": round(focus_percentage, 1), "meta": focus.name},
+        {"label": "Class Avg", "value": class_avg, "meta": f"Class {focus.class_name}"},
+        {"label": "Stream Avg", "value": stream_avg, "meta": focus.stream or "Stream"},
+        {"label": "School Avg", "value": school_avg, "meta": "All students"},
+        {"label": "Class Topper", "value": round(calculate_percentage(class_topper), 1), "meta": class_topper.name},
+        {"label": "Overall Topper", "value": round(calculate_percentage(overall_topper), 1), "meta": overall_topper.name},
+    ]
+
+    return {
+        "focus_student": {
+            "id": focus.id,
+            "name": focus.name,
+            "roll_number": focus.roll_number,
+            "class_name": focus.class_name,
+            "section": focus.section,
+            "stream": focus.stream,
+        },
+        "summary": [
+            {"label": "Current Result", "value": round(focus_percentage, 1), "suffix": "%", "meta": prediction["category"]},
+            {"label": "Overall Rank", "value": rank_all.get(focus.id, 0), "suffix": f"/{len(all_students)}", "meta": f"{percentile}% percentile"},
+            {"label": "Gap To Topper", "value": round(calculate_percentage(overall_topper) - focus_percentage, 1), "suffix": "%", "meta": overall_topper.name},
+            {"label": "Prediction Risk", "value": prediction["risk_level"], "suffix": "", "meta": f"{prediction['confidence']}% confidence"},
+            {"label": "Class Average", "value": class_avg, "suffix": "%", "meta": f"{round(focus_percentage - class_avg, 1)}% vs class"},
+            {"label": "Stream Average", "value": stream_avg, "suffix": "%", "meta": f"{round(focus_percentage - stream_avg, 1)}% vs stream"},
+        ],
+        "comparisons": comparisons,
+        "subjects": subject_rows,
+        "insights": [
+            {"title": "Strongest Areas", "text": ", ".join(f"{item['subject']} ({item['student_mark']}%)" for item in strongest)},
+            {"title": "Immediate Focus", "text": ", ".join(f"{item['subject']} ({item['student_mark']}%)" for item in weakest)},
+            {"title": "Biggest Topper Gaps", "text": ", ".join(f"{item['subject']} needs +{item['gap_to_topper']}%" for item in biggest_gaps)},
+            {"title": "Benchmark Reading", "text": f"{focus.name} is {round(focus_percentage - class_avg, 1)}% from class average and {round(calculate_percentage(overall_topper) - focus_percentage, 1)}% from the overall topper."},
+        ],
+    }
+
+
 def class_trend_payload(students=None):
     students = students if students is not None else scoped_students().all()
     classes = sorted({student.class_name for student in students}, key=lambda value: str(value))
@@ -3218,6 +3311,7 @@ def analytics_overview():
                 for student in students
             ],
             "category_distribution": category_distribution_payload(students),
+            "result_analysis": result_analysis_payload(students),
             "class_trend": class_trend_payload(students),
             "radar": subject_averages_payload(students),
             "heatmap": heatmap_payload(students),

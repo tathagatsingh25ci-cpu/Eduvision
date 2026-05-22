@@ -1424,11 +1424,12 @@
     elements.teacherNoteForm?.addEventListener("submit", createTeacherNote);
     elements.syllabusForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        const form = event.currentTarget;
         if (!selectedStudent) {
             window.showToast("Select a student first");
             return;
         }
-        const payload = Object.fromEntries(new FormData(event.currentTarget).entries());
+        const payload = Object.fromEntries(new FormData(form).entries());
         try {
             showLoading(true);
             const data = await fetchJson(`/api/syllabus/${selectedStudent.id}`, {
@@ -1436,7 +1437,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-            event.currentTarget.reset();
+            form.reset();
             setupSyllabusFormOptions();
             renderSyllabus(data.syllabus);
             window.showToast("Chapter added");
